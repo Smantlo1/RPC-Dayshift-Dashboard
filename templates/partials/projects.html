@@ -1,0 +1,168 @@
+{# partials/projects.html — Project tracking: fixtures, signage, displays, RPS, SET #}
+
+<div class="pb-8">
+
+  <!-- Summary alert bar -->
+  {% if flagged %}
+  <div class="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-5">
+    <p class="text-red-700 font-bold text-sm mb-2">⚠️ {{ flagged | length }} Project(s) Need Attention</p>
+    <ul class="space-y-1">
+      {% for p in flagged %}
+      <li class="text-sm flex items-center gap-2">
+        <span class="text-red-400">•</span>
+        <strong>[{{ p.category }}]</strong> {{ p.name }}
+        <span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{{ p.status }}</span>
+        {% if not p.owner %}
+        <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">NO OWNER</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Add new project form -->
+  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4 mb-5">
+    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">➕ Add Project / Ticket</p>
+    <form hx-post="/projects/add"
+          hx-target="#projects-content"
+          hx-swap="innerHTML"
+          class="flex flex-wrap gap-2 items-end">
+      <select name="category"
+              class="border border-wm-gray50 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wm-blue">
+        {% for cat in categories %}
+        <option>{{ cat }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="name" required placeholder="Project / ticket name"
+             class="flex-1 min-w-48 border border-wm-gray50 rounded px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <input type="text" name="owner" placeholder="Owner"
+             class="w-32 border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <input type="date" name="due_date"
+             class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <select name="status"
+              class="border border-wm-gray50 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wm-blue">
+        {% for s in statuses %}
+        <option>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit"
+              class="bg-wm-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-wm-bluehov transition">
+        Add
+      </button>
+    </form>
+  </div>
+
+  <!-- Project groups -->
+  <div id="projects-content" class="space-y-4">
+    {% for cat in categories %}
+    {% set cat_projects = grouped.get(cat, []) %}
+    <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 overflow-hidden">
+      <!-- Category header -->
+      <div class="bg-wm-gray10 px-4 py-3 border-b border-wm-gray50 flex items-center justify-between">
+        <span class="font-bold text-sm text-wm-gray160">{{ cat }}</span>
+        <span class="text-xs text-wm-gray100 font-medium">
+          {{ cat_projects | length }} item{{ 's' if cat_projects | length != 1 }}
+          {% set overdue_cnt = cat_projects | selectattr('status', 'in', ['Overdue', 'Blocked']) | list | length %}
+          {% if overdue_cnt > 0 %}
+          — <span class="text-red-600 font-semibold">{{ overdue_cnt }} issue(s)</span>
+          {% endif %}
+        </span>
+      </div>
+
+      {% if not cat_projects %}
+      <p class="text-xs text-wm-gray100 text-center py-4 italic">No {{ cat | lower }} tracked yet.</p>
+      {% else %}
+      <div class="divide-y divide-wm-gray10">
+        {% for proj in cat_projects %}
+        <div class="px-4 py-3
+          {% if proj.status in ('Overdue', 'Blocked') %}bg-red-50
+          {% elif proj.status == 'At Risk' %}bg-yellow-50
+          {% elif proj.status == 'Complete' %}bg-green-50
+          {% endif %}">
+
+          <div class="flex flex-wrap items-start gap-3">
+            <!-- Name + status -->
+            <div class="flex-1 min-w-48">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-medium text-sm">{{ proj.name }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                  {% if proj.status == 'Overdue' or proj.status == 'Blocked' %}bg-red-100 text-red-700
+                  {% elif proj.status == 'At Risk' %}bg-yellow-100 text-yellow-800
+                  {% elif proj.status == 'Complete' %}bg-green-100 text-green-700
+                  {% else %}bg-blue-100 text-blue-700{% endif %}">
+                  {{ proj.status }}
+                </span>
+                {% if not proj.owner %}
+                <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">NO OWNER</span>
+                {% else %}
+                <span class="text-xs text-wm-gray100">→ {{ proj.owner }}</span>
+                {% endif %}
+              </div>
+              {% if proj.due_date %}
+              <p class="text-xs text-wm-gray100 mt-0.5">Due: {{ proj.due_date }}</p>
+              {% endif %}
+              {% if proj.add_on_order %}
+              <p class="text-xs text-wm-warn font-medium mt-0.5">📦 Add-On: {{ proj.add_on_order }}</p>
+              {% endif %}
+              {% if proj.notes %}
+              <p class="text-xs text-wm-gray100 mt-0.5 italic">{{ proj.notes }}</p>
+              {% endif %}
+              <p class="text-xs text-wm-gray100 mt-1">Updated: {{ proj.last_updated }}</p>
+            </div>
+
+            <!-- Inline edit form -->
+            <details class="text-xs">
+              <summary class="cursor-pointer text-wm-blue hover:underline">Edit</summary>
+              <form hx-post="/projects/{{ proj.id }}/update"
+                    hx-target="#projects-content"
+                    hx-swap="innerHTML"
+                    class="mt-2 space-y-1.5 min-w-64">
+                <div class="flex gap-2">
+                  <select name="status"
+                          class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs">
+                    {% for s in statuses %}
+                    <option {% if proj.status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="text" name="owner" value="{{ proj.owner }}" placeholder="Owner"
+                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                </div>
+                <div class="flex gap-2">
+                  <input type="date" name="due_date" value="{{ proj.due_date }}"
+                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                  <input type="text" name="add_on_order" value="{{ proj.add_on_order }}"
+                         placeholder="Add-on order #"
+                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                </div>
+                <input type="text" name="notes" value="{{ proj.notes }}" placeholder="Notes"
+                       class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                <div class="flex gap-2">
+                  <button type="submit"
+                          class="bg-wm-blue text-white px-3 py-1 rounded text-xs hover:bg-wm-bluehov transition">
+                    Save
+                  </button>
+                  <button type="button"
+                          hx-post="/projects/{{ proj.id }}/delete"
+                          hx-target="#projects-content"
+                          hx-swap="innerHTML"
+                          hx-confirm="Delete this project?"
+                          class="bg-red-100 text-red-700 px-3 py-1 rounded text-xs hover:bg-red-200 transition">
+                    Delete
+                  </button>
+                </div>
+              </form>
+            </details>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+</div>

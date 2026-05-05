@@ -1,0 +1,167 @@
+{# partials/future_walk.html — Future walk: upcoming areas 2 weeks out, issue logging #}
+
+<div class="pb-8">
+
+  <!-- Problems alert -->
+  {% if unescalated_problems %}
+  <div class="bg-orange-50 border border-orange-400 rounded-xl px-4 py-3 mb-4">
+    <p class="text-orange-700 font-bold text-sm">⚠️ {{ unescalated_problems | length }} Area(s) Have Problems — Escalate Now</p>
+    <ul class="mt-2 space-y-1">
+      {% for p in unescalated_problems %}
+      <li class="text-sm text-orange-800">
+        • <strong>{{ p.area_name }}</strong>
+        {% if p.fixture_status == 'Missing' %}— 🚫 Fixtures MISSING{% endif %}
+        {% if p.issues %}: {{ p.issues }}{% endif %}
+        <span class="text-xs ml-1 bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded">Not escalated</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Add area form -->
+  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4 mb-5">
+    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">➕ Log Area Walk</p>
+    <form hx-post="/future-walk/add"
+          hx-target="#fw-content"
+          hx-swap="innerHTML"
+          class="flex flex-wrap gap-2 items-end">
+      <input type="hidden" name="walk_date" value="{{ walk_date }}"/>
+      <input type="text" name="area_name" required placeholder="Area / department name"
+             class="flex-1 min-w-40 border border-wm-gray50 rounded px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <div class="flex items-center gap-1">
+        <label class="text-xs text-wm-gray100">Target Date</label>
+        <input type="date" name="target_date"
+               class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      </div>
+      <select name="fixture_status"
+              class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-wm-blue">
+        {% for fs in fixture_statuses %}
+        <option>{{ fs }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="issues" placeholder="Issues found (auto-creates obstacle)"
+             class="flex-1 min-w-48 border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <button type="submit"
+              class="bg-wm-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-wm-bluehov transition">
+        Log Walk
+      </button>
+    </form>
+    <p class="text-xs text-wm-gray100 mt-2">
+      💡 If fixture status is <strong>Missing</strong> or issues are logged,
+      an obstacle task is automatically created.
+    </p>
+  </div>
+
+  <!-- Walk items -->
+  <div id="fw-content">
+    {% if not items %}
+    <div class="text-center text-wm-gray100 py-12 italic">
+      No areas walked for {{ walk_date }}. Log walks above to verify your 2-week horizon.
+    </div>
+    {% else %}
+    <div class="space-y-3">
+      {% for item in items %}
+      <div class="bg-white rounded-xl shadow-sm border border-l-4 overflow-hidden
+        {% if item.fixture_status == 'Missing' %}border-red-400
+        {% elif item.issues %}border-orange-400
+        {% elif item.fixture_status == 'Present' %}border-wm-green
+        {% elif item.fixture_status == 'Ordered' %}border-wm-blue
+        {% else %}border-wm-gray50{% endif %}">
+
+        <div class="px-4 py-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex-1 min-w-48">
+              <!-- Area name + badges -->
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class="font-semibold text-sm">{{ item.area_name }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                  {% if item.fixture_status == 'Missing' %}bg-red-100 text-red-700
+                  {% elif item.fixture_status == 'Present' %}bg-green-100 text-green-700
+                  {% elif item.fixture_status == 'Ordered' %}bg-blue-100 text-blue-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">
+                  {{ item.fixture_status }}
+                </span>
+                {% if item.is_ordered %}
+                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Ordered</span>
+                {% endif %}
+                {% if item.is_escalated %}
+                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">↑ Escalated</span>
+                {% endif %}
+                {% if item.obstacle_created %}
+                <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">🚧 Obstacle created</span>
+                {% endif %}
+              </div>
+
+              {% if item.target_date %}
+              <p class="text-xs text-wm-gray100">Target: {{ item.target_date }}</p>
+              {% endif %}
+              {% if item.issues %}
+              <p class="text-xs text-orange-700 font-medium mt-1">⚠️ {{ item.issues }}</p>
+              {% endif %}
+              {% if item.notes %}
+              <p class="text-xs text-wm-gray100 mt-1 italic">{{ item.notes }}</p>
+              {% endif %}
+              <p class="text-xs text-wm-gray100 mt-1">Updated: {{ item.updated_at }}</p>
+            </div>
+
+            <!-- Edit form -->
+            <details class="text-xs">
+              <summary class="cursor-pointer text-wm-blue hover:underline">Update</summary>
+              <form hx-post="/future-walk/{{ item.id }}/update"
+                    hx-target="#fw-content"
+                    hx-swap="innerHTML"
+                    class="mt-2 space-y-2 min-w-56">
+                <input type="hidden" name="walk_date" value="{{ walk_date }}"/>
+                <select name="fixture_status"
+                        class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs">
+                  {% for fs in fixture_statuses %}
+                  <option {% if item.fixture_status == fs %}selected{% endif %}>{{ fs }}</option>
+                  {% endfor %}
+                </select>
+                <input type="text" name="issues" value="{{ item.issues }}" placeholder="Issues"
+                       class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                <input type="text" name="notes" value="{{ item.notes }}" placeholder="Notes"
+                       class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                <div class="flex gap-3">
+                  <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" name="is_ordered" value="on"
+                           {% if item.is_ordered %}checked{% endif %}
+                           class="accent-wm-green"/> Ordered
+                  </label>
+                  <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" name="is_escalated" value="on"
+                           {% if item.is_escalated %}checked{% endif %}
+                           class="accent-purple-600"/> Escalated
+                  </label>
+                </div>
+                <div class="flex gap-2">
+                  <button type="submit"
+                          class="bg-wm-blue text-white px-3 py-1 rounded text-xs hover:bg-wm-bluehov transition">
+                    Save
+                  </button>
+                  <button type="button"
+                          hx-post="/future-walk/{{ item.id }}/delete"
+                          hx-target="#fw-content"
+                          hx-swap="innerHTML"
+                          hx-vals='{"walk_date": "{{ walk_date }}"}'
+                          hx-confirm="Remove this area?"
+                          class="bg-red-100 text-red-700 px-3 py-1 rounded text-xs hover:bg-red-200 transition">
+                    Remove
+                  </button>
+                </div>
+              </form>
+            </details>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>

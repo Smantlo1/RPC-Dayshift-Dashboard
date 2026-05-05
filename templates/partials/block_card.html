@@ -1,0 +1,113 @@
+{# partials/block_card.html — Single block card for HTMX swap on checklist toggle #}
+{% set bstatus = status_data %}
+{% set st = bstatus.get('status', 'pending') %}
+{% set checked = checked_set %}
+{% set total_items = block.checklist | length %}
+{% set done_items  = checked | length %}
+
+<div class="block-card bg-white rounded-xl border-l-4
+  {% if block.is_lunch %}border-wm-gray50
+  {% elif st == 'done' %}border-wm-green
+  {% elif st == 'in-progress' %}border-wm-blue
+  {% elif st == 'skipped' %}border-wm-gray50
+  {% else %}border-wm-gray50{% endif %}
+  shadow-sm" id="block-{{ block.id }}">
+
+  <button type="button"
+          onclick="toggleBlock('{{ block.id }}')"
+          class="w-full flex items-center justify-between px-4 py-3 text-left gap-3">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <span class="flex-shrink-0 w-3 h-3 rounded-full
+        {% if st == 'done' %}bg-wm-green
+        {% elif st == 'in-progress' %}bg-wm-blue animate-pulse
+        {% elif st == 'skipped' %}bg-wm-gray50
+        {% elif block.is_lunch %}bg-wm-spark
+        {% else %}bg-wm-gray50 border-2 border-wm-gray100{% endif %}">
+      </span>
+      <div class="min-w-0">
+        <span class="text-xs font-mono text-wm-gray100 block">{{ block.time_range }}</span>
+        <span class="font-semibold text-sm leading-tight
+          {% if st == 'done' %}text-wm-green
+          {% elif st == 'in-progress' %}text-wm-blue
+          {% elif block.is_lunch %}text-wm-gray100
+          {% else %}text-wm-gray160{% endif %}">
+          {{ block.label }}
+        </span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      {% if total_items > 0 %}
+      <span class="text-xs px-2 py-0.5 rounded-full font-medium
+        {% if done_items == total_items %}bg-green-100 text-green-700
+        {% elif done_items > 0 %}bg-blue-100 text-blue-700
+        {% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ done_items }}/{{ total_items }}
+      </span>
+      {% endif %}
+      <span class="text-xs px-2 py-0.5 rounded font-medium capitalize
+        {% if st == 'done' %}bg-green-100 text-green-700
+        {% elif st == 'in-progress' %}bg-blue-100 text-blue-700
+        {% else %}bg-gray-100 text-gray-500{% endif %}">
+        {{ st }}
+      </span>
+    </div>
+  </button>
+
+  <div id="body-{{ block.id }}" class="border-t border-wm-gray10">
+    <div class="px-4 py-3 space-y-4">
+      <p class="text-sm text-wm-gray100 leading-relaxed">{{ block.description }}</p>
+      {% if not block.is_lunch %}
+      {% if block.checklist %}
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-2">Checklist</p>
+        <div class="space-y-1.5">
+          {% for item in block.checklist %}
+          <form hx-post="/blocks/checklist"
+                hx-target="#block-{{ block.id }}"
+                hx-swap="outerHTML"
+                class="flex items-center gap-2">
+            <input type="hidden" name="date"     value="{{ target_date }}"/>
+            <input type="hidden" name="block_id" value="{{ block.id }}"/>
+            <input type="hidden" name="item_id"  value="{{ item.id }}"/>
+            <input type="checkbox" name="checked" value="on"
+                   {% if item.id in checked %}checked{% endif %}
+                   onchange="this.form.submit()"
+                   class="w-4 h-4 rounded accent-wm-blue cursor-pointer"/>
+            <label class="text-sm cursor-pointer select-none
+              {% if item.id in checked %}line-through text-wm-gray100{% else %}text-wm-gray160{% endif %}">
+              {{ item.text }}
+            </label>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="bg-wm-gray10 rounded-lg px-3 py-2">
+        <p class="text-xs font-bold text-wm-blue uppercase tracking-wide mb-1">✓ Output</p>
+        <p class="text-sm text-wm-gray160">{{ block.output }}</p>
+      </div>
+      <form hx-post="/blocks/status" hx-target="#timeline-container" hx-swap="innerHTML"
+            class="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="date"     value="{{ target_date }}"/>
+        <input type="hidden" name="block_id" value="{{ block.id }}"/>
+        <select name="status" class="text-sm border border-wm-gray50 rounded px-2 py-1">
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if st == s %}selected{% endif %}>{{ s | capitalize }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="bg-wm-blue text-white text-sm px-3 py-1 rounded hover:bg-wm-bluehov transition">
+          Update
+        </button>
+      </form>
+      <form hx-post="/blocks/notes" hx-target="#notes-saved-{{ block.id }}" hx-swap="innerHTML">
+        <input type="hidden" name="date"     value="{{ target_date }}"/>
+        <input type="hidden" name="block_id" value="{{ block.id }}"/>
+        <textarea name="notes" rows="2" onblur="this.form.requestSubmit()"
+                  class="w-full text-sm border border-wm-gray50 rounded px-2 py-1.5 resize-none"
+                  placeholder="Notes…">{{ bstatus.get('notes', '') }}</textarea>
+        <div id="notes-saved-{{ block.id }}" class="h-4 mt-1"></div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>

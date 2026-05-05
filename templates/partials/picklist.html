@@ -1,0 +1,145 @@
+{# partials/picklist.html — Fixture picklist with zero on-hand flags and backup prompts #}
+
+<div class="pb-8">
+
+  <!-- Alert: zero on-hands or critical unresolved -->
+  {% if critical_unresolved %}
+  <div class="bg-red-600 text-white rounded-xl px-4 py-3 mb-4">
+    <p class="font-bold text-sm">🚨 STOP — {{ critical_unresolved | length }} Critical Fixture(s) Missing</p>
+    <p class="text-xs mt-1 text-red-100">Do NOT continue blindly. Flag it, escalate, and prepare a backup plan now.</p>
+    <ul class="mt-2 space-y-0.5">
+      {% for i in critical_unresolved %}
+      <li class="text-sm">• <strong>{{ i.fixture_name }}</strong> — needed by {{ i.needed_by or 'ASAP' }}
+        {% if not i.backup_plan %}
+        <span class="ml-1 bg-white text-red-600 text-xs px-1.5 py-0.5 rounded font-bold">NO BACKUP PLAN</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% elif zero_onhand %}
+  <div class="bg-orange-50 border border-orange-300 rounded-xl px-4 py-3 mb-4">
+    <p class="text-orange-700 font-bold text-sm">⚠️ {{ zero_onhand | length }} Zero On-Hand Item(s)</p>
+    <ul class="mt-1 space-y-0.5">
+      {% for i in zero_onhand %}
+      <li class="text-sm text-orange-800">• {{ i.fixture_name }} — needed by {{ i.needed_by or 'TBD' }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Add item form -->
+  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4 mb-5">
+    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">➕ Add Picklist Item</p>
+    <form hx-post="/picklist/add"
+          hx-target="#picklist-content"
+          hx-swap="innerHTML"
+          class="flex flex-wrap gap-2 items-end">
+      <input type="hidden" name="date" value="{{ date }}"/>
+      <input type="text" name="fixture_name" required placeholder="Fixture name"
+             class="flex-1 min-w-40 border border-wm-gray50 rounded px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <input type="date" name="needed_by"
+             class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <div class="flex items-center gap-1">
+        <label class="text-xs text-wm-gray100">Need</label>
+        <input type="number" name="qty_needed" min="0" value="0"
+               class="w-16 border border-wm-gray50 rounded px-2 py-2 text-sm text-center"/>
+      </div>
+      <div class="flex items-center gap-1">
+        <label class="text-xs text-wm-gray100">On Hand</label>
+        <input type="number" name="qty_onhand" min="0" value="0"
+               class="w-16 border border-wm-gray50 rounded px-2 py-2 text-sm text-center"/>
+      </div>
+      <input type="text" name="backup_plan" placeholder="Backup plan if missing"
+             class="flex-1 min-w-40 border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <label class="flex items-center gap-1.5 text-sm text-red-600 font-medium cursor-pointer">
+        <input type="checkbox" name="is_critical" value="on" class="accent-red-600"/> 🚨 Critical
+      </label>
+      <button type="submit"
+              class="bg-wm-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-wm-bluehov transition">
+        Add
+      </button>
+    </form>
+  </div>
+
+  <!-- Picklist table -->
+  <div id="picklist-content">
+    {% if not items %}
+    <div class="text-center text-wm-gray100 py-12 italic">No picklist items for {{ date }}. Add items above.</div>
+    {% else %}
+    <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-wm-gray10 text-xs font-bold text-wm-gray100 uppercase tracking-wide">
+            <th class="px-4 py-3 text-left">Fixture</th>
+            <th class="px-3 py-3 text-center">Needed By</th>
+            <th class="px-3 py-3 text-center">Need</th>
+            <th class="px-3 py-3 text-center">On Hand</th>
+            <th class="px-3 py-3 text-center">Status</th>
+            <th class="px-3 py-3 text-center">Backup Plan</th>
+            <th class="px-3 py-3 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-wm-gray10">
+          {% for item in items %}
+          <tr class="
+            {% if item.is_critical and not item.is_ordered %}bg-red-50
+            {% elif item.qty_onhand == 0 and not item.is_ordered %}bg-orange-50
+            {% elif item.is_ordered %}bg-green-50
+            {% endif %}">
+            <td class="px-4 py-3 font-medium">
+              {{ item.fixture_name }}
+              {% if item.is_critical %}
+              <span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded ml-1">🚨 Critical</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-3 text-center text-xs">{{ item.needed_by or '—' }}</td>
+            <td class="px-3 py-3 text-center">{{ item.qty_needed }}</td>
+            <td class="px-3 py-3 text-center
+              {% if item.qty_onhand == 0 %}text-red-600 font-bold{% endif %}">
+              {{ item.qty_onhand }}
+              {% if item.qty_onhand == 0 %}<span class="text-xs">⚠️</span>{% endif %}
+            </td>
+            <td class="px-3 py-3 text-center">
+              {% if item.is_ordered %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Ordered</span>
+              {% else %}
+              <form hx-post="/picklist/{{ item.id }}/ordered"
+                    hx-target="#picklist-content"
+                    hx-swap="innerHTML">
+                <input type="hidden" name="date" value="{{ date }}"/>
+                <button type="submit"
+                        class="text-xs bg-wm-blue text-white px-2 py-0.5 rounded hover:bg-wm-bluehov transition">
+                  Mark Ordered
+                </button>
+              </form>
+              {% endif %}
+            </td>
+            <td class="px-3 py-3 text-xs text-wm-gray100">
+              {% if item.backup_plan %}
+              {{ item.backup_plan }}
+              {% elif item.is_critical %}
+              <span class="text-red-600 font-bold">NEEDED!</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-3 py-3 text-center">
+              <form hx-post="/picklist/{{ item.id }}/delete"
+                    hx-target="#picklist-content"
+                    hx-swap="innerHTML"
+                    onsubmit="return confirm('Remove this item?')">
+                <input type="hidden" name="date" value="{{ date }}"/>
+                <button type="submit" class="text-wm-gray100 hover:text-wm-red text-xs transition">✕</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+</div>

@@ -1,0 +1,194 @@
+{# partials/task_lists.html — Today / Obstacles / Upcoming three-list system #}
+
+<div class="pb-8">
+
+  <!-- Quick-add form -->
+  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4 mb-5">
+    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">➕ Quick Add Task</p>
+    <form hx-post="/tasks/add"
+          hx-target="#task-lists"
+          hx-swap="innerHTML"
+          class="flex flex-wrap gap-2 items-end">
+      <input type="text" name="text" required placeholder="What needs to get done?"
+             class="flex-1 min-w-48 border border-wm-gray50 rounded px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <input type="text" name="owner" placeholder="Owner"
+             class="w-36 border border-wm-gray50 rounded px-2 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+      <select name="list_type"
+              class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-wm-blue">
+        <option value="today">📋 Today</option>
+        <option value="obstacles">🚧 Obstacles</option>
+        <option value="upcoming">🔜 Upcoming</option>
+      </select>
+      <label class="flex items-center gap-1.5 text-sm text-red-600 font-medium cursor-pointer">
+        <input type="checkbox" name="is_critical" value="on" class="accent-red-600"/>
+        🚨 Critical
+      </label>
+      <button type="submit"
+              class="bg-wm-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-wm-bluehov transition">
+        Add
+      </button>
+    </form>
+  </div>
+
+  <!-- Three lists grid -->
+  <div id="task-lists" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    {% set list_config = [
+      ('today',     '📋 Today',     'Must-do items — nothing leaves this list unresolved.',
+       'blue', 'border-wm-blue', 'bg-blue-50'),
+      ('obstacles', '🚧 Obstacles', 'Needs escalation — no item sits here without an owner.',
+       'red',  'border-wm-red',  'bg-red-50'),
+      ('upcoming',  '🔜 Upcoming',  'Future work — if it is not today or an obstacle, it waits.',
+       'gray', 'border-wm-gray100', 'bg-wm-gray10'),
+    ] %}
+
+    {% for list_id, list_label, list_desc, color, border_cls, bg_cls in list_config %}
+    {% set items = grouped.get(list_id, []) %}
+    <div class="rounded-xl border {{ border_cls }} border-l-4 bg-white shadow-sm flex flex-col">
+
+      <!-- List header -->
+      <div class="{{ bg_cls }} px-4 py-3 rounded-t-xl border-b border-wm-gray50">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-sm">{{ list_label }}</span>
+          <span class="text-xs bg-white border border-wm-gray50 px-2 py-0.5 rounded-full font-medium">
+            {{ items | length }}
+          </span>
+        </div>
+        <p class="text-xs text-wm-gray100 mt-0.5">{{ list_desc }}</p>
+      </div>
+
+      <!-- Items -->
+      <div class="flex-1 p-3 space-y-2 min-h-32">
+        {% if not items %}
+        <p class="text-xs text-wm-gray100 text-center py-4 italic">No items — nice!</p>
+        {% endif %}
+
+        {% for task in items %}
+        <div class="group bg-wm-gray10 rounded-lg px-3 py-2.5 border
+          {% if task.is_critical %}border-red-300 bg-red-50
+          {% elif task.is_blocked %}border-orange-300 bg-orange-50
+          {% else %}border-wm-gray50{% endif %}">
+
+          <!-- Task text + flags -->
+          <div class="flex items-start justify-between gap-1 mb-1.5">
+            <span class="text-sm leading-snug font-medium flex-1
+              {% if task.is_critical %}text-red-700{% elif task.is_blocked %}text-orange-700{% endif %}">
+              {% if task.is_critical %}<span class="text-red-500 mr-1">🚨</span>{% endif %}
+              {% if task.is_blocked %}<span class="text-orange-500 mr-1">🚧</span>{% endif %}
+              {{ task.text }}
+            </span>
+          </div>
+
+          <!-- Owner row -->
+          <div class="flex items-center gap-1 mb-1.5">
+            {% if not task.owner %}
+            <form hx-post="/tasks/{{ task.id }}/owner"
+                  hx-target="#task-lists"
+                  hx-swap="innerHTML"
+                  class="flex gap-1 flex-1">
+              <input type="text" name="owner" placeholder="Assign owner ⚠️" required
+                     class="flex-1 text-xs border border-red-300 rounded px-2 py-1
+                            focus:outline-none focus:ring-1 focus:ring-red-400 bg-red-50"/>
+              <button type="submit" class="text-xs bg-red-600 text-white px-2 py-1 rounded">Set</button>
+            </form>
+            {% else %}
+            <span class="text-xs text-wm-gray100">→ <strong>{{ task.owner }}</strong></span>
+            {% endif %}
+          </div>
+
+          <!-- Actions row -->
+          <div class="flex flex-wrap gap-1">
+            <!-- Done -->
+            <form hx-post="/tasks/{{ task.id }}/done"
+                  hx-target="#task-lists" hx-swap="innerHTML">
+              <button type="submit"
+                      class="text-xs bg-wm-green text-white px-2 py-0.5 rounded hover:opacity-80 transition">
+                ✓ Done
+              </button>
+            </form>
+
+            <!-- Move -->
+            {% for lt in list_types %}
+            {% if lt != list_id %}
+            <form hx-post="/tasks/{{ task.id }}/move"
+                  hx-target="#task-lists" hx-swap="innerHTML">
+              <input type="hidden" name="list_type" value="{{ lt }}"/>
+              <button type="submit"
+                      class="text-xs bg-white border border-wm-gray50 px-2 py-0.5 rounded
+                             hover:border-wm-blue hover:text-wm-blue transition">
+                → {{ lt | capitalize }}
+              </button>
+            </form>
+            {% endif %}
+            {% endfor %}
+
+            <!-- Flag blocked -->
+            {% if not task.is_blocked %}
+            <form hx-post="/tasks/{{ task.id }}/flag"
+                  hx-target="#task-lists" hx-swap="innerHTML">
+              <input type="hidden" name="flag" value="blocked"/>
+              <button type="submit"
+                      class="text-xs bg-orange-100 text-orange-700 border border-orange-300
+                             px-2 py-0.5 rounded hover:bg-orange-200 transition">
+                🚧 Block
+              </button>
+            </form>
+            {% endif %}
+
+            <!-- Flag critical -->
+            {% if not task.is_critical %}
+            <form hx-post="/tasks/{{ task.id }}/flag"
+                  hx-target="#task-lists" hx-swap="innerHTML">
+              <input type="hidden" name="flag" value="critical"/>
+              <button type="submit"
+                      class="text-xs bg-red-100 text-red-700 border border-red-300
+                             px-2 py-0.5 rounded hover:bg-red-200 transition">
+                🚨 Critical
+              </button>
+            </form>
+            {% endif %}
+
+            <!-- Clear flags -->
+            {% if task.is_critical or task.is_blocked %}
+            <form hx-post="/tasks/{{ task.id }}/flag"
+                  hx-target="#task-lists" hx-swap="innerHTML">
+              <input type="hidden" name="flag" value="clear"/>
+              <button type="submit"
+                      class="text-xs bg-gray-100 text-gray-600 border border-gray-300
+                             px-2 py-0.5 rounded hover:bg-gray-200 transition">
+                Clear
+              </button>
+            </form>
+            {% endif %}
+
+            <!-- Delete -->
+            <form hx-post="/tasks/{{ task.id }}/delete"
+                  hx-target="#task-lists" hx-swap="innerHTML"
+                  onsubmit="return confirm('Delete this task?')">
+              <button type="submit"
+                      class="text-xs text-wm-gray100 hover:text-wm-red transition">✕</button>
+            </form>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+    {% endfor %}
+
+  </div>
+
+  <!-- Tracking rules reminder -->
+  <div class="mt-5 bg-wm-blue bg-opacity-5 border border-wm-blue border-opacity-20 rounded-xl px-4 py-3">
+    <p class="text-xs font-bold text-wm-blue uppercase tracking-wide mb-2">📏 Tracking Rules</p>
+    <ul class="space-y-1">
+      <li class="text-xs text-wm-gray100">• Keep only 3 lists: <strong>Today</strong>, <strong>Obstacles</strong>, <strong>Upcoming</strong>.</li>
+      <li class="text-xs text-wm-gray100">• If it doesn't fit one of those lists — <strong>it waits</strong>.</li>
+      <li class="text-xs text-red-600 font-medium">• Past due → escalate SAME DAY &nbsp;|&nbsp; 24h → follow up &nbsp;|&nbsp; 48h → escalate.</li>
+    </ul>
+  </div>
+</div>
