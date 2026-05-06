@@ -3,40 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🐶 RPC Daily Operating Dashboard</title>
+<title>RPC Daily Operating Dashboard</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: { extend: { colors: {
-    wm: '#0053e2', wmhov: '#003eb0',
-    spark: '#ffc220', sparkhov: '#e6ae00',
-  }}}
-};
-</script>
 <style>
   body { font-family: system-ui, -apple-system, sans-serif; }
-  .tab-active { border-bottom: 3px solid #0053e2; color: #0053e2; font-weight: 700; }
+  .tab-active   { border-bottom: 3px solid #0053e2; color: #0053e2; font-weight: 700; }
   .tab-inactive { border-bottom: 3px solid transparent; color: #6b7280; }
   .tab-inactive:hover { color: #0053e2; }
   .nudge-info     { background:#eff6ff; border-left:4px solid #3b82f6; }
   .nudge-warning  { background:#fffbeb; border-left:4px solid #f59e0b; }
   .nudge-critical { background:#fef2f2; border-left:4px solid #ef4444; }
   .nudge-success  { background:#f0fdf4; border-left:4px solid #22c55e; }
-  .modal-bg { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px; }
-  .modal-box { background:white;border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal-bg { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;
+               display:flex;align-items:center;justify-content:center;padding:16px; }
+  .modal-box { background:white;border-radius:16px;width:100%;max-width:480px;
+                max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3); }
   details > summary { cursor:pointer; list-style:none; }
   details > summary::-webkit-details-marker { display:none; }
-  .done-text { text-decoration:line-through; color:#9ca3af; }
-  input,textarea,select { outline:none; }
-  input:focus,textarea:focus,select:focus { ring: 2px solid #0053e2; }
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
 
-<!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+<!-- HEADER -->
 <div class="bg-[#0053e2] text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40 shadow-lg">
   <div class="flex items-center gap-3">
-    <span class="text-2xl">🐶</span>
+    <span class="text-2xl">🏗️</span>
     <div>
       <div class="font-black text-lg leading-none">RPC Daily Operating Dashboard</div>
       <div id="hdr-date" class="text-xs opacity-80 mt-0.5"></div>
@@ -47,387 +38,308 @@ tailwind.config = {
     <button onclick="goToday()" class="bg-[#ffc220] text-gray-900 font-bold px-3 py-1.5 rounded text-sm">Today</button>
     <button onclick="nextDay()" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm">Next →</button>
     <input type="date" id="date-picker" onchange="setDate(this.value)"
-      class="bg-white/20 border border-white/30 text-white px-2 py-rounded text-sm [color-scheme:dark]">
+      class="bg-white/20 border border-white/30 text-white px-2 py-1 rounded text-sm [color-scheme:dark]">
   </div>
 </div>
 
-<!-- ── PRIORITY RULES BANNER ──────────────────────────────────────────── -->
+<!-- PRIORITY BAR -->
 <div class="bg-gray-800 text-white text-xs px-4 py-2 flex flex-wrap gap-x-6 gap-y-1">
-  <span>📌 <strong>1st:</strong> Make sure TODAY's work gets done.</span>
-  <span>📌 <strong>2nd:</strong> Make sure TOMORROW is set up.</span>
-  <span>📌 <strong>3rd:</strong> Escalate anything that could impact phasing — IMMEDIATELY.</span>
+  <span>📌 <b>1:</b> Make today's work happen.</span>
+  <span>📌 <b>2:</b> Make tomorrow ready.</span>
+  <span>📌 <b>3:</b> Escalate anything that could impact phasing — NOW.</span>
   <span id="weekly-note-banner" class="text-yellow-300 font-semibold"></span>
 </div>
 
-<!-- ── NUDGES ─────────────────────────────────────────────────────────── -->
-<div id="nudge-bar" class="px-4 pt-3 space-y-2 max-w-7xl mx-auto"></div>
+<!-- NUDGES -->
+<div id="nudge-bar" class="px-4 pt-3 space-y-2 max-w-5xl mx-auto"></div>
 
-<!-- ── STATUS BADGES ──────────────────────────────────────────────────── -->
-<div id="status-badges" class="px-4 pt-2 flex flex-wrap gap-2 max-w-7xl mx-auto"></div>
+<!-- STATUS BADGES -->
+<div id="status-badges" class="px-4 pt-2 flex flex-wrap gap-2 max-w-5xl mx-auto"></div>
 
-<!-- ── WEEKLY NOTE CARD ───────────────────────────────────────────────── -->
-<div id="weekly-note-card" class="hidden px-4 pt-2 max-w-7xl mx-auto">
-  <div class="bg-amber-50 border border-amber-300 rounded-lg px-4 py-2 text-sm text-amber-800 font-medium"></div>
-</div>
-
-<!-- ── TAB NAV ────────────────────────────────────────────────────────── -->
-<div class="max-w-7xl mx-auto px-4 pt-3">
-  <div class="flex gap-0 border-b border-gray-200 overflow-x-auto">
-    <button onclick="setTab('timeline')"  id="tab-timeline"  class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">🕐 Timeline</button>
-    <button onclick="setTab('tasks')"     id="tab-tasks"     class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">📋 Tasks</button>
-    <button onclick="setTab('projects')"  id="tab-projects"  class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">📊 Projects</button>
-    <button onclick="setTab('picklist')"  id="tab-picklist"  class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">📦 Picklist</button>
-    <button onclick="setTab('walk')"      id="tab-walk"      class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">🔮 Future Walk</button>
-    <button onclick="setTab('closeout')"  id="tab-closeout"  class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">🔒 Closeout</button>
-    <button onclick="setTab('weekly')"    id="tab-weekly"    class="px-4 py-2 text-sm whitespace-nowrap tab-inactive">📅 Weekly</button>
+<!-- TABS -->
+<div class="max-w-5xl mx-auto px-4 pt-3">
+  <div class="flex gap-0 border-b border-gray-200">
+    <button onclick="setTab('timeline')"  id="tab-timeline"  class="px-5 py-2.5 text-sm whitespace-nowrap tab-inactive">🕐 Timeline</button>
+    <button onclick="setTab('tasks')"     id="tab-tasks"     class="px-5 py-2.5 text-sm whitespace-nowrap tab-inactive">📋 Tasks</button>
+    <button onclick="setTab('tracking')"  id="tab-tracking"  class="px-5 py-2.5 text-sm whitespace-nowrap tab-inactive">📊 Tracking Sheets</button>
+    <button onclick="setTab('weekly')"    id="tab-weekly"    class="px-5 py-2.5 text-sm whitespace-nowrap tab-inactive">📅 Weekly</button>
   </div>
 </div>
 
-<!-- ── TAB CONTENT ────────────────────────────────────────────────────── -->
-<div class="max-w-7xl mx-auto px-4 pt-4 pb-16">
+<!-- TAB CONTENT -->
+<div class="max-w-5xl mx-auto px-4 pt-4 pb-16">
   <div id="tab-content-timeline"  class="hidden"></div>
   <div id="tab-content-tasks"     class="hidden"></div>
-  <div id="tab-content-projects"  class="hidden"></div>
-  <div id="tab-content-picklist"  class="hidden"></div>
-  <div id="tab-content-walk"      class="hidden"></div>
-  <div id="tab-content-closeout"  class="hidden"></div>
+  <div id="tab-content-tracking"  class="hidden"></div>
   <div id="tab-content-weekly"    class="hidden"></div>
 </div>
 
-<!-- ── MODAL ─────────────────────────────────────────────────────────── -->
+<!-- MODAL -->
 <div id="modal" class="modal-bg hidden" onclick="if(event.target===this)closeModal()">
-  <div class="modal-box">
-    <div id="modal-content"></div>
-  </div>
+  <div class="modal-box"><div id="modal-content"></div></div>
 </div>
 
 <script>
-// ════════════════════════════════════════════════════════════════
-//  DATA & STATE
-// ════════════════════════════════════════════════════════════════
-const KEY = 'rpc_dash_v2';
-
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
-  catch { return {}; }
-}
-function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
-
+// ── STORAGE ──────────────────────────────────────────────────────────────────
+const KEY = 'rpc_dash_v3';
+function load() { try { return JSON.parse(localStorage.getItem(KEY))||{}; } catch{ return {}; } }
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 function getStore() {
   const d = load();
-  if (!d.tasks)     d.tasks     = [];
-  if (!d.projects)  d.projects  = [];
-  if (!d.picklist)  d.picklist  = [];
-  if (!d.walk)      d.walk      = [];
-  if (!d.blocks)    d.blocks    = {};   // { "2026-05-05": { blockId: {status, notes} } }
-  if (!d.closeout)  d.closeout  = {};   // { "2026-05-05": { checks, notes } }
+  if (!d.tasks)     d.tasks    = [];
+  if (!d.projects)  d.projects = [];
+  if (!d.blocks)    d.blocks   = {};
+  if (!d.sheetUrl)  d.sheetUrl = '';
+  if (!d.summary)   d.summary  = {};  // { fixtures, signage, displays, rps, set } → { status, notes, updated }
   return d;
 }
-
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function isoToday() { return new Date().toISOString().slice(0,10); }
 
-// ── App State ────────────────────────────────────────────────────
+// ── APP STATE ─────────────────────────────────────────────────────────────────
 let state = { date: isoToday(), tab: 'timeline' };
 
-// ════════════════════════════════════════════════════════════════
-//  SCHEDULE DATA
-// ════════════════════════════════════════════════════════════════
-const SCHEDULE = {
-  // 0=Mon,1=Tue,2=Wed,3=Thu,4=Fri,5=Sat,6=Sun
-  default: [
-    { id:'turnover',   time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
-      tasks:['Walk with overnight RPC','Review OneNote for completion/accuracy','Identify missing fixtures or incomplete work','Build prioritized Today\'s Problems list'],
-      output:'Short prioritized today\'s problems list.' },
-    { id:'meeting',    time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
-      tasks:['Capture every action item (not just listen)','Write what must be completed today','Confirm who owns each item','Assign owner if unclear'],
-      output:'Clear action list with ownership assigned.' },
-    { id:'followups',  time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + Tracking Updates',
-      tasks:['Send all follow-ups from the meeting','Connect with dayshift OPL and ISG on priorities','Escalate missing fixtures, unanswered tickets, missed deadlines','Update ALL project tracking (fixtures, signage, displays, RPS, SET)','Place any needed Add-On orders and log them','Rule: past due = escalate same day; 24hr = follow up; 48hr = escalate'],
-      output:'No unclear or unowned issues. Fully updated tracking.' },
-    { id:'planning',   time:'9:00 – 9:30 AM',   start:9,    end:9.5,  label:'Quick Planning',
-      tasks:['Review if today\'s work is set up for success','Confirm what area is next in phasing','Check: are we on track today?','Check: is the next area ready?','Adjust now or escalate if not'],
-      output:'Clear plan for today + awareness of next phase.' },
-    { id:'validation', time:'9:30 – 10:45 AM',  start:9.5,  end:10.75,label:'Validation + Cleanup',
-      tasks:['Verify we have what we need for nightly notes','Clean up email — only items needing follow-up remain','Send follow-ups on outstanding issues','Continue escalation if needed','Start or update notes for third shift and known issues'],
-      output:'Clean inbox, documented risks, all problems actively worked or escalated.' },
-    { id:'picklist',   time:'10:45 – 11:00 AM', start:10.75,end:11,   label:'Picklist Start',
-      tasks:['Identify what fixtures are needed and when they must arrive','Flag any missing major items or zero on-hands immediately','Do NOT continue blindly if critical items are missing — flag, escalate, and prepare backup plan'],
-      output:'Picklist started. Critical gaps flagged.' },
-    { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
-    { id:'futurewalk', time:'12:00 – 1:00 PM',  start:12,   end:13,   label:'Future Walk (2 weeks out)',
-      tasks:['Walk upcoming areas for next 2 weeks','Verify fixtures are present or ordered','Confirm plan makes sense in reality','Place orders or escalate immediately if anything is missing or off'],
-      output:'Confidence that the next two weeks will not fail due to preventable issues.' },
-    { id:'closeout',   time:'1:00 – 2:00 PM',   start:13,   end:14,   label:'Close Out + Prep',
-      tasks:['Finish and finalize notes','Complete picklist if needed','Send final follow-ups','Prepare anything to get ahead for tomorrow','Confirm overnight is set up to succeed','Confirm tomorrow is clear'],
-      output:'Clean handoff, completed picklist, no confusion going into the night.' },
+// ── SCHEDULE ──────────────────────────────────────────────────────────────────
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+const CLOSEOUT_BLOCK = {
+  id:'closeout', time:'1:00 – 2:00 PM', start:13, end:14, label:'🔒 Close Out + Prep',
+  tasks:[
+    'Finish and finalize overnight notes',
+    'Complete and submit picklist if needed',
+    'Send all final follow-ups',
+    'Prepare anything to get ahead for tomorrow',
   ],
-  1: [ // Tuesday overrides
-    { id:'turnover',   time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
-      tasks:['Walk with overnight RPC','Review OneNote for completion/accuracy','Build prioritized Today\'s Problems list'],
-      output:'Prioritized problems list.' },
-    { id:'meeting',    time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
-      tasks:['Capture all action items','Assign ownership to everything'],
-      output:'Clear action list with ownership.' },
-    { id:'followups',  time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + Tracking Updates',
-      tasks:['Send follow-ups from meeting','Update all tracking sheets','Escalate anything past due'],
-      output:'Updated tracking, no unowned issues.' },
-    { id:'planning_lock',time:'9:00 – 10:45 AM',start:9,    end:10.75,label:'Planning Lock-In (Tuesday)',
+  closeoutChecks:[
+    { id:'notes_done',    label:'📝 Notes finalized and written for overnight crew' },
+    { id:'trailer',       label:'🚚 Trailer staged and ready' },
+    { id:'followups_sent',label:'📧 All final follow-ups sent' },
+    { id:'tomorrow_ready',label:'✅ Tomorrow is clear and set up to succeed' },
+    { id:'overnight_set', label:'🌙 Overnight crew is set up to succeed' },
+  ],
+  output:'Clean handoff. No confusion going into the night.',
+};
+
+const BASE_SCHEDULE = [
+  { id:'turnover',   time:'6:00 – 7:30 AM',    start:6,     end:7.5,  label:'Turnover + Reality Check',
+    tasks:['Walk with overnight RPC','Review OneNote for completion and accuracy','Identify missing fixtures or incomplete work','Identify anything that could impact tonight'],
+    output:'Short prioritized Today\'s Problems list.' },
+  { id:'meeting',    time:'7:30 – 8:00 AM',    start:7.5,   end:8,    label:'Morning Meeting',
+    tasks:['Capture every action item — not just listen','Write down what must be completed today','Write down what is behind','Assign an owner to every item — if unclear, assign one now'],
+    output:'Clear action list with ownership assigned.' },
+  { id:'followups',  time:'8:00 – 9:00 AM',    start:8,     end:9,    label:'Follow-Ups + Tracking Updates',
+    tasks:['Send all follow-ups from the meeting','Connect with dayshift OPL and ISG on priorities','Escalate missing fixtures, unanswered tickets, missed deadlines','Update ALL Tracking Sheets — fixtures, signage, displays, RPS, SET','Place needed Add-On orders and log them to the sheet','Rule: past due → escalate same day | 24hr → follow up | 48hr → escalate'],
+    output:'No unclear or unowned issues. Tracking fully updated.' },
+  { id:'planning',   time:'9:00 – 9:30 AM',    start:9,     end:9.5,  label:'Quick Planning',
+    tasks:['Confirm today\'s work is set up for success','Confirm what area is next in phasing','Are we on track today? Is the next area ready?','Adjust now or escalate if not'],
+    output:'Clear plan for today. Awareness of next phase.' },
+  { id:'validation', time:'9:30 – 10:45 AM',   start:9.5,   end:10.75,label:'Validation + Cleanup',
+    tasks:['Verify everything needed for nightly notes is ready','Clean up email — keep only items needing follow-up','Send follow-ups on outstanding issues and continue escalation','Start or update third-shift notes and known issues'],
+    output:'Clean inbox. Documented risks. All problems actively worked or escalated.' },
+  { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11,   end:12,   label:'Lunch', isLunch:true },
+  CLOSEOUT_BLOCK,
+];
+
+const SCHEDULE = {
+  default: BASE_SCHEDULE,
+  1: [ // Tuesday
+    { id:'turnover',  time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
+      tasks:['Walk with overnight RPC','Review OneNote','Build prioritized problems list'], output:'Problems list.' },
+    { id:'meeting',   time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
+      tasks:['Capture action items','Assign ownership to every item'], output:'Action list with ownership.' },
+    { id:'followups', time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + Tracking Updates',
+      tasks:['Send follow-ups','Update all tracking sheets','Escalate anything past due'], output:'Updated tracking.' },
+    { id:'planning_lock', time:'9:00 – 10:45 AM', start:9, end:10.75, label:'📋 Planning Lock-In (Tuesday)',
       tasks:['Finalize the weekly plan','Confirm phasing','Complete the weekly planner','Review GC needs and flooring schedule','Finalize department PDFs in Adobe'],
       output:'Locked weekly plan. Phasing confirmed.' },
-    { id:'picklist',   time:'10:45 – 11:00 AM', start:10.75,end:11,   label:'Picklist Start',
-      tasks:['Start picklist','Flag zero on-hands immediately'],
-      output:'Picklist started.' },
-    { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
-    { id:'expenses',   time:'12:00 – 1:00 PM',  start:12,   end:13,   label:'Expenses (Previous Weeks)',
-      tasks:['Complete expenses for all previous weeks','Submit for approval'],
-      output:'Expenses submitted.' },
-    { id:'closeout',   time:'1:00 – 2:00 PM',   start:13,   end:14,   label:'Close Out + Prep',
-      tasks:['Finish notes','Send final follow-ups','Confirm overnight is set'],
-      output:'Clean handoff.' },
+    { id:'lunch',     time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
+    { id:'expenses',  time:'12:00 – 1:00 PM',  start:12,   end:13,   label:'Expenses (Previous Weeks)',
+      tasks:['Complete expenses for all previous weeks','Submit for approval'], output:'Expenses submitted.' },
+    CLOSEOUT_BLOCK,
   ],
   2: [ // Wednesday
-    { id:'turnover',   time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
-      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'],
-      output:'Prioritized problems list.' },
-    { id:'meeting',    time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
-      tasks:['Capture all action items','Assign ownership'],
-      output:'Action list with ownership.' },
-    { id:'followups',  time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + Tracking Updates',
-      tasks:['Send follow-ups','Update all tracking sheets'],
-      output:'Updated tracking.' },
-    { id:'preentry',   time:'9:00 – 10:45 AM',  start:9,    end:10.75,label:'Pre-Entry + REXPRT Update (Wednesday)',
-      tasks:['Begin pre-entry for JSR','Update REXPRT','Make everything clear and accessible','All info ready for Thursday submission'],
-      output:'Pre-entry complete. REXPRT updated.' },
-    { id:'picklist',   time:'10:45 – 11:00 AM', start:10.75,end:11,   label:'Picklist Start',
-      tasks:['Start picklist','Flag zero on-hands'],
-      output:'Picklist started.' },
-    { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
-    { id:'futurewalk', time:'12:00 – 1:00 PM',  start:12,   end:13,   label:'Future Walk (2 weeks out)',
-      tasks:['Walk upcoming areas','Verify fixtures present or ordered','Escalate gaps immediately'],
-      output:'Next 2 weeks confidence check complete.' },
-    { id:'closeout',   time:'1:00 – 2:00 PM',   start:13,   end:14,   label:'Close Out + Prep',
-      tasks:['Finish notes','Send final follow-ups','Confirm overnight ready'],
-      output:'Clean handoff.' },
+    { id:'turnover',  time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
+      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'], output:'Problems list.' },
+    { id:'meeting',   time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
+      tasks:['Capture action items','Assign ownership'], output:'Action list.' },
+    { id:'followups', time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + Tracking Updates',
+      tasks:['Send follow-ups','Update all tracking sheets'], output:'Updated tracking.' },
+    { id:'preentry',  time:'9:00 – 10:45 AM',  start:9,    end:10.75,label:'🔧 Pre-Entry + REXPRT Update (Wednesday)',
+      tasks:['Begin pre-entry for JSR','Update REXPRT','Make everything clear and accessible for Thursday'], output:'Pre-entry complete. REXPRT updated.' },
+    { id:'validation',time:'10:45 AM – 11:00 AM',start:10.75,end:11, label:'Validation + Cleanup',
+      tasks:['Clean inbox','Send outstanding follow-ups','Document all risks'], output:'Clean inbox. Risks documented.' },
+    { id:'lunch',     time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
+    CLOSEOUT_BLOCK,
   ],
   3: [ // Thursday
-    { id:'jsr',        time:'By 9:00 AM',        start:6,    end:9,    label:'⚠️ JSR DUE BY 9:00 AM',
-      tasks:['SUBMIT JSR BEFORE 9:00 AM — no exceptions','Confirm submission receipt'],
-      output:'JSR submitted. Confirmation received.' },
-    { id:'turnover',   time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
-      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'],
-      output:'Prioritized problems list.' },
-    { id:'meeting',    time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
-      tasks:['Capture action items','Assign ownership'],
-      output:'Action list with ownership.' },
-    { id:'followups_thu',time:'8:00 – 9:00 AM', start:8,    end:9,    label:'Follow-Ups + JSR Submission',
-      tasks:['SUBMIT JSR if not done','Send all follow-ups from morning meeting','Update all tracking sheets','No surprises — accountability'],
-      output:'JSR in. Tracking updated. No open questions.' },
-    { id:'validation', time:'9:00 – 10:45 AM',  start:9,    end:10.75,label:'Validation + Cleanup',
-      tasks:['Clean inbox','Send outstanding follow-ups','Document all risks','Continue escalations'],
-      output:'Clean inbox, documented risks.' },
-    { id:'picklist',   time:'10:45 – 11:00 AM', start:10.75,end:11,   label:'Picklist Start',
-      tasks:['Start picklist','Flag zero on-hands','Escalate critical gaps'],
-      output:'Picklist started.' },
-    { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
-    { id:'futurewalk', time:'12:00 – 1:00 PM',  start:12,   end:13,   label:'Future Walk (2 weeks out)',
-      tasks:['Walk upcoming areas','Verify fixtures','Escalate gaps'],
-      output:'Next 2 weeks checked.' },
-    { id:'closeout',   time:'1:00 – 2:00 PM',   start:13,   end:14,   label:'Close Out + Prep',
-      tasks:['Finish notes','Send follow-ups','Confirm overnight'],
-      output:'Clean handoff.' },
+    { id:'jsr_due',   time:'⚠️ By 9:00 AM',    start:6,    end:9,    label:'⚠️ JSR DUE BY 9:00 AM',
+      tasks:['SUBMIT JSR BEFORE 9:00 AM — no exceptions','Confirm submission receipt'], output:'JSR submitted. Confirmation received.' },
+    { id:'turnover',  time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
+      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'], output:'Problems list.' },
+    { id:'meeting',   time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
+      tasks:['Capture action items','Assign ownership'], output:'Action list.' },
+    { id:'followups', time:'8:00 – 9:00 AM',   start:8,    end:9,    label:'Follow-Ups + JSR Submission',
+      tasks:['SUBMIT JSR if not already done','Send all follow-ups from morning meeting','Update all tracking sheets'], output:'JSR in. Tracking updated.' },
+    { id:'validation',time:'9:00 – 10:45 AM',  start:9,    end:10.75,label:'Validation + Cleanup',
+      tasks:['Clean inbox','Send outstanding follow-ups','Document all risks','Continue escalations'], output:'Clean inbox. Risks documented.' },
+    { id:'lunch',     time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
+    CLOSEOUT_BLOCK,
   ],
   4: [ // Friday
-    { id:'weekly_summary',time:'By 9:00 AM',    start:6,    end:9,    label:'⚠️ WEEKLY SUMMARY DUE BY 9:00 AM',
-      tasks:['SEND WEEKLY SUMMARY before 9:00 AM','Cover: progress, risks, key updates'],
-      output:'Weekly summary sent.' },
-    { id:'turnover',   time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
-      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'],
-      output:'Prioritized problems list.' },
-    { id:'meeting',    time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
-      tasks:['Capture action items','Assign ownership'],
-      output:'Action list.' },
-    { id:'admin_fri',  time:'9:00 AM – 2:00 PM',start:9,    end:14,   label:'Admin + Stabilization (Friday)',
-      tasks:['Send Weekly Summary if not done','Clean up overnight issues','Resolve outstanding follow-ups','Prepare notes for Sunday','Leave site controlled going into the weekend'],
+    { id:'weekly_summary', time:'⚠️ By 9:00 AM', start:6,  end:9,    label:'⚠️ WEEKLY SUMMARY DUE BY 9:00 AM',
+      tasks:['SEND WEEKLY SUMMARY before 9:00 AM','Cover: progress, risks, key updates'], output:'Weekly summary sent.' },
+    { id:'turnover',  time:'6:00 – 7:30 AM',   start:6,    end:7.5,  label:'Turnover + Reality Check',
+      tasks:['Walk with overnight RPC','Review OneNote','Build problems list'], output:'Problems list.' },
+    { id:'meeting',   time:'7:30 – 8:00 AM',   start:7.5,  end:8,    label:'Morning Meeting',
+      tasks:['Capture action items','Assign ownership'], output:'Action list.' },
+    { id:'admin_fri', time:'9:00 AM – 2:00 PM', start:9,   end:14,   label:'Admin + Stabilization (Friday)',
+      tasks:['Send Weekly Summary if not done yet','Clean up overnight issues','Resolve all outstanding follow-ups','Prepare notes for Sunday','Leave the site controlled going into the weekend'],
       output:'Site controlled. Weekend handoff ready.' },
-    { id:'lunch',      time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
+    { id:'lunch',     time:'11:00 AM – 12:00 PM',start:11, end:12,   label:'Lunch', isLunch:true },
+    CLOSEOUT_BLOCK,
   ],
 };
 
+const WEEKLY_NOTES = {
+  Tuesday:  '📅 Planning Lock-In — finalize the weekly plan and phasing today.',
+  Wednesday:'📅 Pre-Entry day — begin JSR pre-entry and update REXPRT.',
+  Thursday: '⚠️ JSR DUE BY 9:00 AM — this is the first thing you do.',
+  Friday:   '⚠️ Weekly Summary DUE BY 9:00 AM — send before anything else.',
+};
+
 function getBlocks(dateStr) {
-  const dow = new Date(dateStr + 'T12:00:00').getDay(); // 0=Sun,1=Mon...
-  const map = { 1:0, 2:1, 3:2, 4:3, 5:4 }; // JS day -> schedule key
+  const dow = new Date(dateStr+'T12:00:00').getDay();
+  const map = {1:0, 2:1, 3:2, 4:3, 5:4};
   const key = map[dow];
   return SCHEDULE[key] !== undefined ? SCHEDULE[key] : SCHEDULE.default;
 }
 
-const WEEKLY_NOTES = {
-  'Tuesday':  '📅 Planning Lock-In — finalize the weekly plan and phasing.',
-  'Wednesday':'📅 Pre-Entry day — begin JSR pre-entry and update REXPRT.',
-  'Thursday': '⚠️ JSR DUE BY 9:00 AM — submit before anything else.',
-  'Friday':   '⚠️ Weekly Summary DUE BY 9:00 AM — send before 9.',
+const STATUS_OPTS    = ['pending','in-progress','done','skipped','blocked'];
+const STATUS_COLORS  = {
+  done:         'bg-green-100 text-green-800',
+  'in-progress':'bg-blue-100  text-blue-700',
+  pending:      'bg-gray-100  text-gray-600',
+  skipped:      'bg-gray-100  text-gray-400',
+  blocked:      'bg-red-100   text-red-700',
 };
 
-const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const STATUS_COLORS = {
-  done:        'bg-green-100 text-green-800',
-  'in-progress':'bg-blue-100 text-blue-700',
-  pending:     'bg-gray-100 text-gray-600',
-  skipped:     'bg-gray-100 text-gray-400',
-  blocked:     'bg-red-100 text-red-700',
-};
+// ── TRACKING SHEET CATEGORIES ─────────────────────────────────────────────────
+const TRACK_CATS = ['Fixtures','Signage','Displays','RPS Tickets','SET Tickets'];
+const TRACK_STATUSES = ['On Track','In Progress','At Risk','Overdue','Blocked','Complete'];
 
-// ════════════════════════════════════════════════════════════════
-//  DATE NAVIGATION
-// ════════════════════════════════════════════════════════════════
-function setDate(d) {
-  state.date = d;
-  document.getElementById('date-picker').value = d;
-  render();
-}
-function goToday()  { setDate(isoToday()); }
-function prevDay()  { const d=new Date(state.date+'T12:00:00'); d.setDate(d.getDate()-1); setDate(d.toISOString().slice(0,10)); }
-function nextDay()  { const d=new Date(state.date+'T12:00:00'); d.setDate(d.getDate()+1); setDate(d.toISOString().slice(0,10)); }
+// ── DATE NAV ──────────────────────────────────────────────────────────────────
+function setDate(d){ state.date=d; document.getElementById('date-picker').value=d; render(); }
+function goToday() { setDate(isoToday()); }
+function prevDay() { const d=new Date(state.date+'T12:00:00'); d.setDate(d.getDate()-1); setDate(d.toISOString().slice(0,10)); }
+function nextDay() { const d=new Date(state.date+'T12:00:00'); d.setDate(d.getDate()+1); setDate(d.toISOString().slice(0,10)); }
 
-// ════════════════════════════════════════════════════════════════
-//  TABS
-// ════════════════════════════════════════════════════════════════
-function setTab(t) {
+// ── TABS ──────────────────────────────────────────────────────────────────────
+const ALL_TABS = ['timeline','tasks','tracking','weekly'];
+function setTab(t){
   state.tab = t;
-  ['timeline','tasks','projects','picklist','walk','closeout','weekly'].forEach(id => {
-    document.getElementById('tab-'+id).className = 'px-4 py-2 text-sm whitespace-nowrap ' + (id===t ? 'tab-active' : 'tab-inactive');
-    document.getElementById('tab-content-'+id).classList.toggle('hidden', id!==t);
+  ALL_TABS.forEach(id=>{
+    document.getElementById('tab-'+id).className = 'px-5 py-2.5 text-sm whitespace-nowrap '+(id===t?'tab-active':'tab-inactive');
+    document.getElementById('tab-content-'+id).classList.toggle('hidden',id!==t);
   });
   renderTab(t);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  RENDER ORCHESTRATOR
-// ════════════════════════════════════════════════════════════════
-function render() {
-  const d = new Date(state.date + 'T12:00:00');
+// ── RENDER ORCHESTRATOR ───────────────────────────────────────────────────────
+function render(){
+  const d = new Date(state.date+'T12:00:00');
   const dayName = DAY_NAMES[d.getDay()];
-  const displayDate = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  document.getElementById('hdr-date').textContent = displayDate + ' · ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  document.getElementById('hdr-date').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})+
+    ' · '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
   document.getElementById('date-picker').value = state.date;
-
-  const note = WEEKLY_NOTES[dayName] || '';
-  document.getElementById('weekly-note-banner').textContent = note;
-
-  const noteCard = document.getElementById('weekly-note-card');
-  if (note) {
-    noteCard.classList.remove('hidden');
-    noteCard.querySelector('div').textContent = note;
-  } else {
-    noteCard.classList.add('hidden');
-  }
-
+  document.getElementById('weekly-note-banner').textContent = WEEKLY_NOTES[dayName]||'';
   renderNudges(dayName);
   renderBadges();
   renderTab(state.tab);
 }
-
-function renderTab(t) {
-  if (t==='timeline')  renderTimeline();
-  if (t==='tasks')     renderTasks();
-  if (t==='projects')  renderProjects();
-  if (t==='picklist')  renderPicklist();
-  if (t==='walk')      renderWalk();
-  if (t==='closeout')  renderCloseout();
-  if (t==='weekly')    renderWeekly();
+function renderTab(t){
+  if(t==='timeline') renderTimeline();
+  if(t==='tasks')    renderTasks();
+  if(t==='tracking') renderTracking();
+  if(t==='weekly')   renderWeekly();
 }
 
-// ════════════════════════════════════════════════════════════════
-//  NUDGES
-// ════════════════════════════════════════════════════════════════
-function renderNudges(dayName) {
-  const now = new Date();
-  const hour = now.getHours() + now.getMinutes()/60;
-  const isToday = state.date === isoToday();
-  const nudges = [];
-
-  if (!isToday) { document.getElementById('nudge-bar').innerHTML=''; return; }
-
-  const blocks = getBlocks(state.date);
-  const store = getStore();
-  const dayBlocks = store.blocks[state.date] || {};
-
-  const current = blocks.find(b=>!b.isLunch && b.start<=hour && hour<b.end);
-  if (current) {
-    const st = (dayBlocks[current.id]||{}).status || 'pending';
-    if (st==='pending')     nudges.push({level:'info',    icon:'🕐', text:`You should be on: <strong>${current.label}</strong> (${current.time})`});
-    if (st==='in-progress') nudges.push({level:'success', icon:'✅', text:`In progress: <strong>${current.label}</strong> — keep going!`});
-  }
-
-  blocks.filter(b=>!b.isLunch && b.end<=hour).forEach(b=>{
-    const st = (dayBlocks[b.id]||{}).status || 'pending';
-    if (!['done','skipped'].includes(st)) nudges.push({level:'warning',icon:'⚠️',text:`Not marked done: <strong>${b.label}</strong> (${b.time})`});
-  });
-
-  if (dayName==='Thursday' && hour>=8.5 && hour<9)
-    nudges.push({level:'critical',icon:'🚨',text:'JSR due at 9:00 AM — submit NOW!'});
-  if (dayName==='Friday' && hour>=8.5 && hour<9)
-    nudges.push({level:'critical',icon:'🚨',text:'Weekly Summary due at 9:00 AM — send NOW!'});
-
-  const tasks = store.tasks.filter(t=>!t.done);
-  const crits = tasks.filter(t=>t.critical||t.blocked);
-  if (crits.length) nudges.push({level:'critical',icon:'🚨',text:`${crits.length} critical/blocked task${crits.length>1?'s':''} need attention now.`});
-
-  const unowned = tasks.filter(t=>!t.owner && t.list==='today');
-  if (unowned.length) nudges.push({level:'warning',icon:'⚠️',text:`${unowned.length} task${unowned.length>1?'s':''} in Today have no owner assigned.`});
-
-  document.getElementById('nudge-bar').innerHTML = nudges.map(n=>
-    `<div class="nudge-${n.level} rounded px-3 py-2 text-sm flex items-start gap-2">
-       <span>${n.icon}</span><span>${n.text}</span></div>`
-  ).join('');
-}
-
-function renderBadges() {
-  const store = getStore();
-  const tasks = store.tasks.filter(t=>!t.done);
-  const todayCount = tasks.filter(t=>t.list==='today').length;
-  const obsCount   = tasks.filter(t=>t.list==='obstacles').length;
-  const upCount    = tasks.filter(t=>t.list==='upcoming').length;
-  const critCount  = tasks.filter(t=>t.critical||t.blocked).length;
-  const unowned    = tasks.filter(t=>!t.owner&&t.list==='today').length;
-
-  let html = '';
-  if (unowned)   html+=`<span class="bg-red-100 text-red-700 border border-red-300 px-2 py-1 rounded-full text-xs font-semibold">🚫 ${unowned} Unowned</span>`;
-  if (critCount) html+=`<span class="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">🚨 ${critCount} Critical/Blocked</span>`;
-  html+=`<span class="bg-blue-100 text-blue-700 border border-blue-300 px-2 py-1 rounded-full text-xs">📌 Today: ${todayCount} &nbsp;|&nbsp; ⛔ Obstacles: ${obsCount} &nbsp;|&nbsp; 🔜 Upcoming: ${upCount}</span>`;
-  document.getElementById('status-badges').innerHTML = html;
-}
-
-// ════════════════════════════════════════════════════════════════
-//  TIMELINE TAB
-// ════════════════════════════════════════════════════════════════
-function renderTimeline() {
-  const blocks = getBlocks(state.date);
-  const store = getStore();
-  const dayBlocks = store.blocks[state.date] || {};
-  const now = new Date(); const hour = now.getHours()+now.getMinutes()/60;
+// ── NUDGES ────────────────────────────────────────────────────────────────────
+function renderNudges(dayName){
   const isToday = state.date===isoToday();
+  if(!isToday){ document.getElementById('nudge-bar').innerHTML=''; return; }
+  const now=new Date(), hour=now.getHours()+now.getMinutes()/60;
+  const blocks=getBlocks(state.date);
+  const store=getStore();
+  const dayBlocks=store.blocks[state.date]||{};
+  const nudges=[];
 
-  const html = blocks.map(b => {
-    if (b.isLunch) return `
+  const cur = blocks.find(b=>!b.isLunch && b.start<=hour && hour<b.end);
+  if(cur){
+    const st=(dayBlocks[cur.id]||{}).status||'pending';
+    if(st==='pending')      nudges.push({level:'info',   icon:'🕐',text:`Current block: <strong>${cur.label}</strong> (${cur.time})`});
+    if(st==='in-progress')  nudges.push({level:'success',icon:'✅',text:`In progress: <strong>${cur.label}</strong> — keep going!`});
+  }
+  blocks.filter(b=>!b.isLunch&&b.end<=hour).forEach(b=>{
+    const st=(dayBlocks[b.id]||{}).status||'pending';
+    if(!['done','skipped'].includes(st))
+      nudges.push({level:'warning',icon:'⚠️',text:`Not yet done: <strong>${b.label}</strong> (${b.time})`});
+  });
+  if(dayName==='Thursday'&&hour>=8.5&&hour<9) nudges.push({level:'critical',icon:'🚨',text:'JSR due at 9:00 AM — submit NOW!'});
+  if(dayName==='Friday'&&hour>=8.5&&hour<9)   nudges.push({level:'critical',icon:'🚨',text:'Weekly Summary due at 9:00 AM — send NOW!'});
+
+  const tasks=store.tasks.filter(t=>!t.done);
+  const crits=tasks.filter(t=>t.critical||t.blocked);
+  if(crits.length) nudges.push({level:'critical',icon:'🚨',text:`${crits.length} critical/blocked task${crits.length>1?'s':''} need attention.`});
+  const unowned=tasks.filter(t=>!t.owner&&t.list==='today');
+  if(unowned.length) nudges.push({level:'warning',icon:'⚠️',text:`${unowned.length} Today task${unowned.length>1?'s':''} have no owner assigned.`});
+
+  document.getElementById('nudge-bar').innerHTML=nudges.map(n=>
+    `<div class="nudge-${n.level} rounded px-3 py-2 text-sm flex items-start gap-2">
+       <span>${n.icon}</span><span>${n.text}</span></div>`).join('');
+}
+
+function renderBadges(){
+  const store=getStore();
+  const tasks=store.tasks.filter(t=>!t.done);
+  const tc=tasks.filter(t=>t.list==='today').length;
+  const oc=tasks.filter(t=>t.list==='obstacles').length;
+  const uc=tasks.filter(t=>t.list==='upcoming').length;
+  const cc=tasks.filter(t=>t.critical||t.blocked).length;
+  const nowner=tasks.filter(t=>!t.owner&&t.list==='today').length;
+  let html='';
+  if(nowner) html+=`<span class="bg-red-100 text-red-700 border border-red-300 px-2 py-1 rounded-full text-xs font-semibold">🚫 ${nowner} Unowned</span>`;
+  if(cc)     html+=`<span class="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">🚨 ${cc} Critical/Blocked</span>`;
+  html+=`<span class="bg-blue-100 text-blue-700 border border-blue-300 px-2 py-1 rounded-full text-xs">📌 Today: ${tc} &nbsp;|&nbsp; ⛔ Obstacles: ${oc} &nbsp;|&nbsp; 🔜 Upcoming: ${uc}</span>`;
+  document.getElementById('status-badges').innerHTML=html;
+}
+
+// ── TIMELINE ──────────────────────────────────────────────────────────────────
+function renderTimeline(){
+  const blocks=getBlocks(state.date);
+  const store=getStore();
+  const dayBlocks=store.blocks[state.date]||{};
+  const now=new Date(), hour=now.getHours()+now.getMinutes()/60;
+  const isToday=state.date===isoToday();
+
+  const html=blocks.map(b=>{
+    if(b.isLunch) return `
       <div class="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3 text-gray-400">
-        <span class="text-xl">🍽️</span>
-        <span class="text-sm">${b.time} — Lunch</span>
-      </div>`;
+        <span>🍽️</span><span class="text-sm">${b.time} — Lunch</span></div>`;
 
-    const bData = dayBlocks[b.id] || {};
-    const status = bData.status || 'pending';
-    const notes  = bData.notes  || '';
-    const isCurrent = isToday && b.start<=hour && hour<b.end;
-    const isPast    = isToday && b.end<=hour;
-    const ringClass = isCurrent ? 'ring-2 ring-blue-400' : '';
+    const bData    = dayBlocks[b.id]||{};
+    const status   = bData.status||'pending';
+    const notes    = bData.notes||'';
+    const taskChecks = bData.taskChecks||{};
+    const isCurrent  = isToday&&b.start<=hour&&hour<b.end;
+    const isPast     = isToday&&b.end<=hour;
 
-    const statusOpts = ['pending','in-progress','done','skipped','blocked'].map(s=>
+    const statusOpts = STATUS_OPTS.map(s=>
       `<option value="${s}" ${s===status?'selected':''}>${s}</option>`).join('');
 
-    const taskChecks = bData.taskChecks || {};
+    // Task checklist rows
     const tasksHtml = (b.tasks||[]).map((t,i)=>{
-      const checked = !!taskChecks[i];
+      const checked=!!taskChecks[i];
       return `
       <li class="flex items-start gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5"
           onclick="toggleBlockTask('${b.id}',${i})">
@@ -438,11 +350,51 @@ function renderTimeline() {
         <span class="${checked?'line-through text-gray-400':'text-gray-700'}">${esc(t)}</span>
       </li>`;}).join('');
 
+    // Closeout checklist (only on the closeout block)
+    let closeoutHtml = '';
+    if(b.closeoutChecks){
+      const coChecks = bData.coChecks||{};
+      const doneCount = b.closeoutChecks.filter(c=>coChecks[c.id]).length;
+      const allDone   = doneCount===b.closeoutChecks.length;
+      const pct       = Math.round(doneCount/b.closeoutChecks.length*100);
+      closeoutHtml = `
+        <div class="mt-2 border border-gray-100 rounded-lg overflow-hidden">
+          <div class="bg-gray-700 text-white px-3 py-2 text-xs font-bold flex items-center justify-between">
+            <span>🔒 Closeout Checklist</span>
+            <span class="${allDone?'text-green-400':'text-yellow-300'}">${doneCount}/${b.closeoutChecks.length}</span>
+          </div>
+          <div class="divide-y divide-gray-50">
+            ${b.closeoutChecks.map(c=>`
+              <div class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50"
+                   onclick="toggleCoCheck('${b.id}','${c.id}')">
+                <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0
+                            ${coChecks[c.id]?'bg-green-500':'border-2 border-gray-300'}">
+                  ${coChecks[c.id]?'<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>':''}
+                </div>
+                <span class="text-sm ${coChecks[c.id]?'line-through text-gray-400':'text-gray-700'}">${c.label}</span>
+              </div>`).join('')}
+          </div>
+          <div class="px-3 pb-2">
+            <div class="h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+              <div class="h-full rounded-full transition-all ${allDone?'bg-green-500':'bg-[#0053e2]'}" style="width:${pct}%"></div>
+            </div>
+          </div>
+          ${allDone?`<div class="bg-green-50 text-green-700 text-xs text-center py-2 font-semibold">✅ Closeout complete — clean handoff!</div>`:''}
+        </div>
+        <textarea placeholder="Overnight notes for the crew…" rows="3"
+          onblur="setBlockField('${b.id}','coNotes',this.value)"
+          class="w-full text-xs border border-gray-200 rounded px-3 py-2 mt-2 resize-none focus:border-blue-400"
+          >${esc(bData.coNotes||'')}</textarea>`;
+    }
+
+    const icon = isCurrent ? '▶️' : (isPast && !['done','skipped'].includes(status)) ? '⚠️' : '🕐';
+
     return `
-    <details class="bg-white rounded-xl border ${isCurrent?'border-blue-300':'border-gray-100'} ${ringClass} overflow-hidden" ${isCurrent?'open':''}>
+    <details class="bg-white rounded-xl border ${isCurrent?'border-blue-300 ring-2 ring-blue-200':'border-gray-100'} overflow-hidden"
+             ${isCurrent||b.id==='closeout'?'':''}  >
       <summary class="px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
         <div class="flex items-center gap-3 flex-1 min-w-0">
-          <span class="text-lg">${isCurrent?'▶️':isPast&&status!=='done'?'⚠️':'🕐'}</span>
+          <span class="text-lg">${icon}</span>
           <div class="min-w-0">
             <div class="font-semibold text-sm text-gray-900 truncate">${esc(b.label)}</div>
             <div class="text-xs text-gray-500">${b.time}</div>
@@ -451,65 +403,69 @@ function renderTimeline() {
         <span class="text-xs px-2 py-1 rounded-full font-medium shrink-0 ${STATUS_COLORS[status]||'bg-gray-100 text-gray-600'}">${status}</span>
       </summary>
       <div class="border-t border-gray-100 px-4 py-3 space-y-3">
-        ${tasksHtml ? `<ul class="space-y-1">${tasksHtml}</ul>` : ''}
-        ${b.output ? `<div class="text-xs bg-green-50 border border-green-100 rounded px-3 py-2 text-green-800"><strong>Output:</strong> ${esc(b.output)}</div>` : ''}
-        <div class="flex flex-wrap gap-3 items-center">
-          <div class="flex items-center gap-2">
-            <label class="text-xs font-medium text-gray-600">Status:</label>
-            <select onchange="setBlockStatus('${b.id}','status',this.value)"
-              class="text-xs border border-gray-200 rounded px-2 py-1 bg-white">
-              ${statusOpts}
-            </select>
-          </div>
+        ${tasksHtml?`<ul class="space-y-0.5">${tasksHtml}</ul>`:''}
+        ${b.output?`<div class="text-xs bg-green-50 border border-green-100 rounded px-3 py-2 text-green-800"><strong>Output:</strong> ${esc(b.output)}</div>`:''}
+        ${closeoutHtml}
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-medium text-gray-600 shrink-0">Block status:</label>
+          <select onchange="setBlockField('${b.id}','status',this.value)"
+            class="text-xs border border-gray-200 rounded px-2 py-1 bg-white">
+            ${statusOpts}
+          </select>
         </div>
         <textarea placeholder="Notes for this block…" rows="2"
-          onblur="setBlockStatus('${b.id}','notes',this.value)"
+          onblur="setBlockField('${b.id}','notes',this.value)"
           class="w-full text-xs border border-gray-200 rounded px-3 py-2 resize-none focus:border-blue-400"
           >${esc(notes)}</textarea>
       </div>
     </details>`;
   }).join('');
 
-  document.getElementById('tab-content-timeline').innerHTML = `<div class="space-y-2">${html}</div>`;
+  document.getElementById('tab-content-timeline').innerHTML=`<div class="space-y-2">${html}</div>`;
 }
 
-function toggleBlockTask(blockId, taskIdx) {
-  const store = getStore();
-  if (!store.blocks[state.date]) store.blocks[state.date] = {};
-  if (!store.blocks[state.date][blockId]) store.blocks[state.date][blockId] = {};
-  if (!store.blocks[state.date][blockId].taskChecks) store.blocks[state.date][blockId].taskChecks = {};
-  const cur = store.blocks[state.date][blockId].taskChecks[taskIdx];
-  store.blocks[state.date][blockId].taskChecks[taskIdx] = !cur;
-  save(store);
-  renderTimeline();
+function toggleBlockTask(blockId, idx){
+  const store=getStore();
+  if(!store.blocks[state.date]) store.blocks[state.date]={};
+  if(!store.blocks[state.date][blockId]) store.blocks[state.date][blockId]={};
+  if(!store.blocks[state.date][blockId].taskChecks) store.blocks[state.date][blockId].taskChecks={};
+  store.blocks[state.date][blockId].taskChecks[idx]=!store.blocks[state.date][blockId].taskChecks[idx];
+  save(store); renderTimeline();
 }
 
-function setBlockStatus(blockId, field, val) {
-  const store = getStore();
-  if (!store.blocks[state.date]) store.blocks[state.date] = {};
-  if (!store.blocks[state.date][blockId]) store.blocks[state.date][blockId] = {};
-  store.blocks[state.date][blockId][field] = val;
-  save(store);
-  renderBadges();
+function toggleCoCheck(blockId, checkId){
+  const store=getStore();
+  if(!store.blocks[state.date]) store.blocks[state.date]={};
+  if(!store.blocks[state.date][blockId]) store.blocks[state.date][blockId]={};
+  if(!store.blocks[state.date][blockId].coChecks) store.blocks[state.date][blockId].coChecks={};
+  store.blocks[state.date][blockId].coChecks[checkId]=!store.blocks[state.date][blockId].coChecks[checkId];
+  save(store); renderTimeline();
 }
 
-// ════════════════════════════════════════════════════════════════
-//  TASKS TAB  (Today / Obstacles / Upcoming)
-// ════════════════════════════════════════════════════════════════
-function renderTasks() {
-  const store = getStore();
-  const active = store.tasks.filter(t=>!t.done);
-  const done   = store.tasks.filter(t=>t.done).slice(-5).reverse();
-  const lists  = [
-    { id:'today',     label:'📌 Today — Must Do',      color:'bg-[#0053e2]', hint:'Everything that must happen today.' },
-    { id:'obstacles', label:'⛔ Obstacles — Escalate',  color:'bg-red-600',   hint:'Blocked items needing escalation.' },
-    { id:'upcoming',  label:'🔜 Upcoming',              color:'bg-gray-700',  hint:'Future work — not today.' },
+function setBlockField(blockId, field, val){
+  const store=getStore();
+  if(!store.blocks[state.date]) store.blocks[state.date]={};
+  if(!store.blocks[state.date][blockId]) store.blocks[state.date][blockId]={};
+  store.blocks[state.date][blockId][field]=val;
+  save(store); renderBadges();
+}
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
+function renderTasks(){
+  const store=getStore();
+  const active=store.tasks.filter(t=>!t.done);
+  const done=store.tasks.filter(t=>t.done).slice(-5).reverse();
+  const lists=[
+    {id:'today',     label:'📌 Today',     color:'bg-[#0053e2]', hint:'Must happen today.'},
+    {id:'obstacles', label:'⛔ Obstacles',  color:'bg-red-600',   hint:'Blocked — needs escalation.'},
+    {id:'upcoming',  label:'🔜 Upcoming',  color:'bg-gray-700',  hint:'Future work, not today.'},
   ];
 
-  const html = lists.map(lst=>{
-    const items = active.filter(t=>t.list===lst.id).sort((a,b)=>(b.critical?1:0)-(a.critical?1:0)||(b.blocked?1:0)-(a.blocked?1:0));
-    const rows = items.length ? items.map(t=>taskRow(t,lst.id)).join('') :
-      `<p class="text-gray-400 italic text-sm py-2">Nothing here.</p>`;
+  const html=lists.map(lst=>{
+    const items=active.filter(t=>t.list===lst.id).sort((a,b)=>
+      (b.critical?1:0)-(a.critical?1:0)||(b.blocked?1:0)-(a.blocked?1:0));
+    const rows=items.length ? items.map(t=>taskRow(t,lst.id)).join('') :
+      `<p class="text-gray-400 italic text-sm py-3 px-2">Nothing here.</p>`;
     return `
     <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
       <div class="${lst.color} text-white px-4 py-3 flex items-center justify-between">
@@ -518,113 +474,97 @@ function renderTasks() {
           <div class="text-xs opacity-70 mt-0.5">${lst.hint}</div>
         </div>
         <button onclick="openAddTask('${lst.id}')"
-          class="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg">+ Add</button>
+          class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-lg">+ Add</button>
       </div>
       <div class="divide-y divide-gray-50 px-2">${rows}</div>
     </div>`;
   }).join('');
 
-  const doneHtml = done.length ? `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-4">
-      <div class="bg-green-700 text-white px-4 py-2 text-sm font-bold">✅ Recently Completed (last 5)</div>
+  const doneHtml=done.length?`
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-3">
+      <div class="bg-green-700 text-white px-4 py-2 text-sm font-bold">✅ Recently Completed</div>
       <div class="divide-y divide-gray-50 px-2">
         ${done.map(t=>`
           <div class="py-2 px-2 flex items-center gap-2 text-sm text-gray-400">
             <span>✅</span>
             <span class="flex-1 line-through">${esc(t.text)}</span>
-            ${t.owner?`<span class="text-xs">👤${esc(t.owner)}</span>`:''}
+            ${t.owner?`<span class="text-xs">👤 ${esc(t.owner)}</span>`:''}
             <button onclick="uncompleteTask('${t.id}')" class="text-xs text-blue-500 hover:underline">undo</button>
           </div>`).join('')}
       </div>
-    </div>` : '';
+    </div>`:'';
 
-  document.getElementById('tab-content-tasks').innerHTML = `<div class="space-y-3">${html}</div>${doneHtml}`;
+  document.getElementById('tab-content-tasks').innerHTML=`<div class="space-y-3">${html}</div>${doneHtml}`;
 }
 
-function taskRow(t, currentList) {
-  const otherLists = ['today','obstacles','upcoming'].filter(l=>l!==currentList);
-  const moveOpts = otherLists.map(l=>
-    `<button onclick="moveTask('${t.id}','${l}')" class="text-xs text-gray-500 hover:text-blue-600">→ ${l}</button>`
-  ).join('');
+function taskRow(t, currentList){
+  const others=['today','obstacles','upcoming'].filter(l=>l!==currentList);
+  const moves=others.map(l=>`<button onclick="moveTask('${t.id}','${l}')" class="text-xs text-gray-400 hover:text-blue-600">→ ${l}</button>`).join('');
   return `
-  <div class="py-2 px-2 flex items-start gap-2 ${t.done?'opacity-50':''}">
+  <div class="py-2 px-2 flex items-start gap-2">
     <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')"
       class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0 cursor-pointer">
     <div class="flex-1 min-w-0">
       <div class="flex flex-wrap items-center gap-1.5">
         ${t.critical?'<span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">🚨 CRITICAL</span>':''}
         ${t.blocked ?'<span class="text-xs bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded font-bold">⛔ BLOCKED</span>':''}
-        <span class="text-sm ${t.done?'line-through text-gray-400':''}">${esc(t.text)}</span>
+        <span class="text-sm text-gray-800">${esc(t.text)}</span>
       </div>
-      <div class="flex flex-wrap items-center gap-2 mt-1">
+      <div class="flex flex-wrap items-center gap-2 mt-0.5">
         ${t.owner?`<span class="text-xs text-gray-500">👤 ${esc(t.owner)}</span>`:
                   `<span class="text-xs text-red-500 font-semibold">⚠ No owner</span>`}
         ${t.notes?`<span class="text-xs text-gray-400 italic">${esc(t.notes.slice(0,60))}</span>`:''}
       </div>
       <div class="flex flex-wrap gap-2 mt-1">
-        ${moveOpts}
+        ${moves}
         <button onclick="editTask('${t.id}')" class="text-xs text-gray-400 hover:text-blue-600">edit</button>
-        <button onclick="deleteTask('${t.id}')" class="text-xs text-gray-400 hover:text-red-600">delete</button>
+        <button onclick="deleteTask('${t.id}')" class="text-xs text-gray-400 hover:text-red-500">delete</button>
       </div>
     </div>
   </div>`;
 }
 
-function openAddTask(list) {
-  document.getElementById('modal-content').innerHTML = `
+function openAddTask(list){
+  document.getElementById('modal-content').innerHTML=`
     <div class="px-5 py-4">
       <h3 class="font-bold text-gray-900 mb-4">Add Task → ${list}</h3>
       <div class="space-y-3">
-        <input id="t-text" placeholder="Task description *" required
+        <input id="t-text" placeholder="Task description *"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
         <input id="t-owner" placeholder="Owner (name or role)"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
         <textarea id="t-notes" placeholder="Notes…" rows="2"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-blue-400"></textarea>
-        <div class="flex gap-3">
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="t-critical" class="rounded"> 🚨 Critical
-          </label>
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="t-blocked" class="rounded"> ⛔ Blocked
-          </label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer"><input type="checkbox" id="t-critical" class="rounded"> 🚨 Critical</label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer"><input type="checkbox" id="t-blocked"  class="rounded"> ⛔ Blocked</label>
         </div>
         <div class="flex gap-2 pt-2">
           <button onclick="saveNewTask('${list}')"
-            class="flex-1 bg-[#0053e2] text-white rounded-lg py-2 text-sm font-semibold hover:bg-[#003eb0]">
-            Add Task
-          </button>
+            class="flex-1 bg-[#0053e2] text-white rounded-lg py-2 text-sm font-semibold hover:bg-[#003eb0]">Add Task</button>
           <button onclick="closeModal()"
-            class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">
-            Cancel
-          </button>
+            class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">Cancel</button>
         </div>
       </div>
     </div>`;
-  showModal();
-  document.getElementById('t-text').focus();
+  showModal(); document.getElementById('t-text').focus();
 }
 
-function saveNewTask(list) {
-  const text = document.getElementById('t-text').value.trim();
-  if (!text) return;
-  const store = getStore();
-  store.tasks.push({
-    id: uid(), list, text,
-    owner:    document.getElementById('t-owner').value.trim(),
-    notes:    document.getElementById('t-notes').value.trim(),
-    critical: document.getElementById('t-critical').checked,
-    blocked:  document.getElementById('t-blocked').checked,
-    done: false, createdAt: new Date().toISOString(),
-  });
-  save(store); closeModal(); renderTasks(); renderBadges(); renderNudges();
+function saveNewTask(list){
+  const text=document.getElementById('t-text').value.trim(); if(!text) return;
+  const store=getStore();
+  store.tasks.push({id:uid(),list,text,
+    owner:document.getElementById('t-owner').value.trim(),
+    notes:document.getElementById('t-notes').value.trim(),
+    critical:document.getElementById('t-critical').checked,
+    blocked:document.getElementById('t-blocked').checked,
+    done:false, createdAt:new Date().toISOString()});
+  save(store); closeModal(); renderTasks(); renderBadges(); renderNudges(DAY_NAMES[new Date(state.date+'T12:00:00').getDay()]);
 }
 
-function editTask(id) {
-  const store = getStore();
-  const t = store.tasks.find(x=>x.id===id);
-  if (!t) return;
-  document.getElementById('modal-content').innerHTML = `
+function editTask(id){
+  const store=getStore(); const t=store.tasks.find(x=>x.id===id); if(!t) return;
+  document.getElementById('modal-content').innerHTML=`
     <div class="px-5 py-4">
       <h3 class="font-bold text-gray-900 mb-4">Edit Task</h3>
       <div class="space-y-3">
@@ -635,17 +575,12 @@ function editTask(id) {
         <textarea id="et-notes" rows="2"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-blue-400"
           >${esc(t.notes||'')}</textarea>
-        <select id="et-list"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select id="et-list" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
           ${['today','obstacles','upcoming'].map(l=>`<option value="${l}" ${t.list===l?'selected':''}>${l}</option>`).join('')}
         </select>
-        <div class="flex gap-3">
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="et-critical" ${t.critical?'checked':''} class="rounded"> 🚨 Critical
-          </label>
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="et-blocked" ${t.blocked?'checked':''} class="rounded"> ⛔ Blocked
-          </label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer"><input type="checkbox" id="et-critical" ${t.critical?'checked':''} class="rounded"> 🚨 Critical</label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer"><input type="checkbox" id="et-blocked"  ${t.blocked ?'checked':''} class="rounded"> ⛔ Blocked</label>
         </div>
         <div class="flex gap-2 pt-2">
           <button onclick="saveEditTask('${id}')"
@@ -658,76 +593,81 @@ function editTask(id) {
   showModal();
 }
 
-function saveEditTask(id) {
-  const store = getStore();
-  const t = store.tasks.find(x=>x.id===id);
-  if (!t) return;
-  t.text     = document.getElementById('et-text').value.trim();
-  t.owner    = document.getElementById('et-owner').value.trim();
-  t.notes    = document.getElementById('et-notes').value.trim();
-  t.list     = document.getElementById('et-list').value;
-  t.critical = document.getElementById('et-critical').checked;
-  t.blocked  = document.getElementById('et-blocked').checked;
-  save(store); closeModal(); renderTasks(); renderBadges(); renderNudges();
+function saveEditTask(id){
+  const store=getStore(); const t=store.tasks.find(x=>x.id===id); if(!t) return;
+  t.text=document.getElementById('et-text').value.trim();
+  t.owner=document.getElementById('et-owner').value.trim();
+  t.notes=document.getElementById('et-notes').value.trim();
+  t.list=document.getElementById('et-list').value;
+  t.critical=document.getElementById('et-critical').checked;
+  t.blocked=document.getElementById('et-blocked').checked;
+  save(store); closeModal(); renderTasks(); renderBadges();
 }
 
-function toggleTask(id) {
-  const store = getStore();
-  const t = store.tasks.find(x=>x.id===id);
-  if (!t) return;
-  t.done = !t.done;
-  if (t.done) t.doneAt = new Date().toISOString();
-  save(store); renderTasks(); renderBadges(); renderNudges();
+function toggleTask(id){
+  const store=getStore(); const t=store.tasks.find(x=>x.id===id); if(!t) return;
+  t.done=!t.done; if(t.done) t.doneAt=new Date().toISOString();
+  save(store); renderTasks(); renderBadges();
+}
+function uncompleteTask(id){
+  const store=getStore(); const t=store.tasks.find(x=>x.id===id);
+  if(t){t.done=false;delete t.doneAt;save(store);renderTasks();renderBadges();}
+}
+function moveTask(id,newList){
+  const store=getStore(); const t=store.tasks.find(x=>x.id===id);
+  if(t){t.list=newList;save(store);renderTasks();renderBadges();}
+}
+function deleteTask(id){
+  if(!confirm('Delete this task?')) return;
+  const store=getStore(); store.tasks=store.tasks.filter(x=>x.id!==id);
+  save(store); renderTasks(); renderBadges();
 }
 
-function uncompleteTask(id) {
-  const store = getStore();
-  const t = store.tasks.find(x=>x.id===id);
-  if (t) { t.done=false; delete t.doneAt; save(store); renderTasks(); renderBadges(); }
-}
+// ── TRACKING SHEETS ───────────────────────────────────────────────────────────
+function renderTracking(){
+  const store=getStore();
+  const sheetUrl=store.sheetUrl||'';
+  const summary=store.summary||{};
+  const projects=store.projects||[];
 
-function moveTask(id, newList) {
-  const store = getStore();
-  const t = store.tasks.find(x=>x.id===id);
-  if (t) { t.list=newList; save(store); renderTasks(); renderBadges(); }
-}
+  // Summary cards for the 5 key categories
+  const summaryCards=TRACK_CATS.map(cat=>{
+    const s=summary[cat]||{};
+    const catProjects=projects.filter(p=>p.category===cat);
+    const issues=catProjects.filter(p=>['Overdue','Blocked'].includes(p.status)||!p.owner);
+    const done=catProjects.filter(p=>p.status==='Complete').length;
+    const color=issues.length?'border-red-300 bg-red-50':done===catProjects.length&&catProjects.length?'border-green-300 bg-green-50':'border-gray-200 bg-white';
+    const badge=issues.length?`<span class="text-xs text-red-600 font-bold">${issues.length} issue${issues.length>1?'s':''}</span>`:
+      catProjects.length?`<span class="text-xs text-green-600 font-semibold">${done}/${catProjects.length} done</span>`:
+      `<span class="text-xs text-gray-400">No items</span>`;
+    return `
+      <div class="rounded-lg border ${color} px-3 py-2.5 flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-800">${cat}</span>
+        ${badge}
+      </div>`;
+  }).join('');
 
-function deleteTask(id) {
-  if (!confirm('Delete this task?')) return;
-  const store = getStore();
-  store.tasks = store.tasks.filter(x=>x.id!==id);
-  save(store); renderTasks(); renderBadges(); renderNudges();
-}
-
-// ════════════════════════════════════════════════════════════════
-//  PROJECTS TAB
-// ════════════════════════════════════════════════════════════════
-const PROJ_CATS = ['Fixtures','Signage','Displays','RPS Tickets','SET Tickets','Other'];
-const PROJ_STATUSES = ['On Track','In Progress','At Risk','Overdue','Blocked','Complete'];
-
-function renderProjects() {
-  const store = getStore();
-  const projs  = store.projects;
-  const issues = projs.filter(p=>['Overdue','Blocked'].includes(p.status)||!p.owner);
-
-  const alertHtml = issues.length ? `
+  // Alerts
+  const alerts=projects.filter(p=>['Overdue','Blocked'].includes(p.status)||!p.owner);
+  const alertHtml=alerts.length?`
     <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-      <p class="text-red-700 font-bold text-xs uppercase tracking-wide mb-2">🚨 Needs Attention</p>
-      ${issues.map(p=>`<div class="text-sm text-red-700">• ${esc(p.name)} — ${!p.owner?'<strong>NO OWNER</strong>':esc(p.status)}</div>`).join('')}
-    </div>` : '';
+      <p class="text-red-700 font-bold text-xs uppercase mb-2">🚨 Needs Attention</p>
+      ${alerts.map(p=>`<div class="text-sm text-red-700">• ${esc(p.name)} — ${!p.owner?'<strong>NO OWNER</strong>':esc(p.status)}</div>`).join('')}
+    </div>`:'';
 
-  const cats = [...new Set(projs.map(p=>p.category))].sort();
-  const grouped = cats.map(cat=>{
-    const items = projs.filter(p=>p.category===cat);
-    const rows = items.map(p=>`
+  // Projects grouped by category
+  const catSections=TRACK_CATS.map(cat=>{
+    const items=projects.filter(p=>p.category===cat);
+    if(!items.length) return '';
+    const rows=items.map(p=>`
       <tr class="border-b border-gray-50 hover:bg-gray-50">
-        <td class="px-3 py-2 text-sm font-medium text-gray-900">${esc(p.name)}</td>
-        <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(p.status)}">${esc(p.status)}</span></td>
+        <td class="px-3 py-2 text-sm font-medium">${esc(p.name)}</td>
+        <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full font-medium ${trackStatusColor(p.status)}">${esc(p.status)}</span></td>
         <td class="px-3 py-2 text-sm ${!p.owner?'text-red-500 font-semibold':'text-gray-600'}">${p.owner?esc(p.owner):'⚠ Unowned'}</td>
         <td class="px-3 py-2 text-xs text-gray-500">${esc(p.dueDate||'')}</td>
         <td class="px-3 py-2 text-xs text-gray-400">${esc((p.notes||'').slice(0,50))}</td>
         <td class="px-3 py-2 text-xs text-gray-400">${p.updatedAt?new Date(p.updatedAt).toLocaleDateString():''}</td>
-        <td class="px-3 py-2">
+        <td class="px-3 py-2 whitespace-nowrap">
           <button onclick="editProject('${p.id}')" class="text-xs text-blue-500 hover:underline mr-2">edit</button>
           <button onclick="deleteProject('${p.id}')" class="text-xs text-red-400 hover:underline">del</button>
         </td>
@@ -736,51 +676,90 @@ function renderProjects() {
       <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 mb-3">
         <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">${esc(cat)}</div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left" style="min-width:600px">
+          <table class="w-full text-left" style="min-width:560px">
             <thead><tr class="bg-gray-50 text-xs text-gray-500 uppercase">
-              <th class="px-3 py-2">Name</th><th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Name/Ticket</th><th class="px-3 py-2">Status</th>
               <th class="px-3 py-2">Owner</th><th class="px-3 py-2">Due</th>
               <th class="px-3 py-2">Notes</th><th class="px-3 py-2">Updated</th>
               <th class="px-3 py-2"></th>
             </tr></thead>
-            <tbody>${rows||`<tr><td colspan="7" class="px-3 py-4 text-sm text-gray-400 italic">No items.</td></tr>`}</tbody>
+            <tbody>${rows}</tbody>
           </table>
         </div>
       </div>`;
-  }).join('') || `<div class="bg-white rounded-xl p-8 text-center text-gray-400 italic border border-gray-100">No projects yet. Add one below.</div>`;
+  }).join('');
 
-  document.getElementById('tab-content-projects').innerHTML = `
+  document.getElementById('tab-content-tracking').innerHTML=`
+    <!-- Excel / SharePoint link -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4 mb-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="font-bold text-sm text-gray-800">📂 Live Tracking Sheet</span>
+        ${sheetUrl
+          ? `<a href="${esc(sheetUrl)}" target="_blank"
+               class="bg-[#0053e2] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#003eb0] inline-flex items-center gap-2">
+               Open Tracking Sheet ↗</a>
+             <button onclick="configSheetUrl()" class="text-xs text-gray-400 hover:text-blue-600">change URL</button>`
+          : `<button onclick="configSheetUrl()"
+               class="bg-[#ffc220] text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#e6ae00]">
+               + Set Tracking Sheet URL</button>
+             <span class="text-xs text-gray-400">Paste your SharePoint / Excel link once and it opens directly from here.</span>`}
+      </div>
+    </div>
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">${summaryCards}</div>
     ${alertHtml}
-    ${grouped}
+    ${catSections||`<div class="bg-white rounded-xl p-8 text-center text-gray-400 italic border border-gray-100">No items yet — add your first tracking item below.</div>`}
     <button onclick="openAddProject()"
       class="w-full bg-[#0053e2] text-white rounded-xl py-3 text-sm font-semibold hover:bg-[#003eb0] mt-2">
-      + Add Project / Ticket
+      + Add Item to Tracking Sheet
     </button>`;
 }
 
-function statusBadge(s) {
-  const m = {'On Track':'bg-green-100 text-green-800','Complete':'bg-green-100 text-green-800','In Progress':'bg-blue-100 text-blue-700','At Risk':'bg-amber-100 text-amber-800','Overdue':'bg-red-100 text-red-800','Blocked':'bg-red-100 text-red-800'};
-  return m[s]||'bg-gray-100 text-gray-600';
+function configSheetUrl(){
+  const store=getStore();
+  document.getElementById('modal-content').innerHTML=`
+    <div class="px-5 py-4">
+      <h3 class="font-bold text-gray-900 mb-2">Set Tracking Sheet URL</h3>
+      <p class="text-xs text-gray-500 mb-4">Paste the SharePoint or Excel Online link for your tracking sheet. It will open directly from this dashboard.</p>
+      <input id="su-url" value="${esc(store.sheetUrl||'')}" placeholder="https://walmart.sharepoint.com/..."
+        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 mb-3">
+      <div class="flex gap-2">
+        <button onclick="saveSheetUrl()"
+          class="flex-1 bg-[#0053e2] text-white rounded-lg py-2 text-sm font-semibold hover:bg-[#003eb0]">Save</button>
+        <button onclick="closeModal()"
+          class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">Cancel</button>
+      </div>
+    </div>`;
+  showModal(); document.getElementById('su-url').focus();
+}
+function saveSheetUrl(){
+  const store=getStore(); store.sheetUrl=document.getElementById('su-url').value.trim();
+  save(store); closeModal(); renderTracking();
 }
 
-function openAddProject() {
-  document.getElementById('modal-content').innerHTML = projectForm();
+function trackStatusColor(s){
+  return {'On Track':'bg-green-100 text-green-800','Complete':'bg-green-100 text-green-800',
+    'In Progress':'bg-blue-100 text-blue-700','At Risk':'bg-amber-100 text-amber-800',
+    'Overdue':'bg-red-100 text-red-800','Blocked':'bg-red-100 text-red-800'}[s]||'bg-gray-100 text-gray-600';
+}
+
+function openAddProject(){
+  document.getElementById('modal-content').innerHTML=projectForm();
   showModal();
 }
-
-function projectForm(p) {
-  const isEdit = !!p;
+function projectForm(p){
+  const isEdit=!!p;
   return `
     <div class="px-5 py-4">
-      <h3 class="font-bold text-gray-900 mb-4">${isEdit?'Edit':'Add'} Project / Ticket</h3>
+      <h3 class="font-bold text-gray-900 mb-4">${isEdit?'Edit':'Add'} Tracking Item</h3>
       <div class="space-y-3">
         <input id="pf-name" placeholder="Name / Ticket # *" value="${esc(p?.name||'')}"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
         <select id="pf-cat" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-          ${PROJ_CATS.map(c=>`<option ${(p?.category||''===c)?'selected':''}>${c}</option>`).join('')}
+          ${TRACK_CATS.map(c=>`<option ${(p?.category||'')=== c?'selected':''}>${c}</option>`).join('')}
         </select>
         <select id="pf-status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-          ${PROJ_STATUSES.map(s=>`<option ${(p?.status||'On Track')===s?'selected':''}>${s}</option>`).join('')}
+          ${TRACK_STATUSES.map(s=>`<option ${(p?.status||'On Track')===s?'selected':''}>${s}</option>`).join('')}
         </select>
         <input id="pf-owner" placeholder="Owner *" value="${esc(p?.owner||'')}"
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
@@ -792,42 +771,28 @@ function projectForm(p) {
         <div class="flex gap-2 pt-2">
           <button onclick="${isEdit?`saveEditProject('${p.id}')`:'saveNewProject()'}"
             class="flex-1 bg-[#0053e2] text-white rounded-lg py-2 text-sm font-semibold hover:bg-[#003eb0]">
-            ${isEdit?'Save Changes':'Add Project'}
-          </button>
+            ${isEdit?'Save Changes':'Add Item'}</button>
           <button onclick="closeModal()"
             class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">Cancel</button>
         </div>
       </div>
     </div>`;
 }
-
-function saveNewProject() {
-  const name = document.getElementById('pf-name').value.trim();
-  if (!name) return;
-  const store = getStore();
-  store.projects.push({
-    id:uid(), name, category:document.getElementById('pf-cat').value,
-    status:document.getElementById('pf-status').value,
-    owner:document.getElementById('pf-owner').value.trim(),
-    dueDate:document.getElementById('pf-due').value,
-    notes:document.getElementById('pf-notes').value.trim(),
-    updatedAt:new Date().toISOString(),
-  });
-  save(store); closeModal(); renderProjects();
+function saveNewProject(){
+  const name=document.getElementById('pf-name').value.trim(); if(!name) return;
+  const store=getStore();
+  store.projects.push({id:uid(),name,category:document.getElementById('pf-cat').value,
+    status:document.getElementById('pf-status').value,owner:document.getElementById('pf-owner').value.trim(),
+    dueDate:document.getElementById('pf-due').value,notes:document.getElementById('pf-notes').value.trim(),
+    updatedAt:new Date().toISOString()});
+  save(store); closeModal(); renderTracking();
 }
-
-function editProject(id) {
-  const store = getStore();
-  const p = store.projects.find(x=>x.id===id);
-  if (!p) return;
-  document.getElementById('modal-content').innerHTML = projectForm(p);
-  showModal();
+function editProject(id){
+  const store=getStore(); const p=store.projects.find(x=>x.id===id); if(!p) return;
+  document.getElementById('modal-content').innerHTML=projectForm(p); showModal();
 }
-
-function saveEditProject(id) {
-  const store = getStore();
-  const p = store.projects.find(x=>x.id===id);
-  if (!p) return;
+function saveEditProject(id){
+  const store=getStore(); const p=store.projects.find(x=>x.id===id); if(!p) return;
   p.name=document.getElementById('pf-name').value.trim();
   p.category=document.getElementById('pf-cat').value;
   p.status=document.getElementById('pf-status').value;
@@ -835,402 +800,16 @@ function saveEditProject(id) {
   p.dueDate=document.getElementById('pf-due').value;
   p.notes=document.getElementById('pf-notes').value.trim();
   p.updatedAt=new Date().toISOString();
-  save(store); closeModal(); renderProjects();
+  save(store); closeModal(); renderTracking();
+}
+function deleteProject(id){
+  if(!confirm('Delete this item?')) return;
+  const store=getStore(); store.projects=store.projects.filter(x=>x.id!==id);
+  save(store); renderTracking();
 }
 
-function deleteProject(id) {
-  if (!confirm('Delete this project?')) return;
-  const store = getStore();
-  store.projects = store.projects.filter(x=>x.id!==id);
-  save(store); renderProjects();
-}
-
-// ════════════════════════════════════════════════════════════════
-//  PICKLIST TAB
-// ════════════════════════════════════════════════════════════════
-function renderPicklist() {
-  const store = getStore();
-  const picks  = store.picklist;
-  const crits  = picks.filter(p=>p.critical||p.qtyOnHand===0);
-
-  const alertHtml = crits.length ? `
-    <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-      <p class="text-red-700 font-bold text-xs uppercase tracking-wide mb-1">🚨 Critical / Zero On-Hand — Needs Action Now</p>
-      ${crits.map(p=>`
-        <div class="text-sm text-red-700 flex items-center gap-2">
-          • ${esc(p.fixtureName)}
-          ${p.qtyOnHand===0?'<span class="text-xs bg-red-600 text-white px-1 rounded font-bold">ZERO ON-HAND</span>':''}
-          ${p.backupPlan?`<span class="text-xs text-gray-500">Backup: ${esc(p.backupPlan)}</span>`:'<span class="text-xs text-orange-600 font-semibold">⚠ No backup plan</span>'}
-        </div>`).join('')}
-    </div>` : '';
-
-  const rows = picks.length ? picks.map(p=>`
-    <tr class="border-b border-gray-50 hover:bg-gray-50 ${p.critical?'bg-orange-50':''}">
-      <td class="px-3 py-2 text-sm font-medium">${p.critical?'🚨 ':esc(p.fixtureName)}${p.critical?esc(p.fixtureName):''}</td>
-      <td class="px-3 py-2 text-sm text-gray-600">${esc(p.neededBy||'')}</td>
-      <td class="px-3 py-2 text-sm ${p.qtyOnHand===0?'text-red-600 font-bold':''}">${p.qtyOnHand}</td>
-      <td class="px-3 py-2 text-sm">${p.qtyNeeded}</td>
-      <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full font-medium ${p.ordered?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}">${p.ordered?'Ordered':'Pending'}</span></td>
-      <td class="px-3 py-2 text-xs text-gray-400">${esc((p.backupPlan||'').slice(0,40))}</td>
-      <td class="px-3 py-2">
-        <button onclick="editPickItem('${p.id}')" class="text-xs text-blue-500 hover:underline mr-2">edit</button>
-        <button onclick="deletePickItem('${p.id}')" class="text-xs text-red-400 hover:underline">del</button>
-      </td>
-    </tr>`).join('') :
-    `<tr><td colspan="7" class="px-3 py-6 text-center text-gray-400 italic text-sm">No picklist items yet.</td></tr>`;
-
-  document.getElementById('tab-content-picklist').innerHTML = `
-    ${alertHtml}
-    <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 mb-3">
-      <div class="bg-purple-700 text-white px-4 py-3 flex items-center justify-between">
-        <span class="font-bold text-sm">📦 Picklist — ${picks.length} item${picks.length!==1?'s':''}</span>
-        <button onclick="openAddPickItem()" class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-lg">+ Add Item</button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left" style="min-width:580px">
-          <thead><tr class="bg-gray-50 text-xs text-gray-500 uppercase">
-            <th class="px-3 py-2">Fixture</th><th class="px-3 py-2">Needed By</th>
-            <th class="px-3 py-2">On Hand</th><th class="px-3 py-2">Needed</th>
-            <th class="px-3 py-2">Status</th><th class="px-3 py-2">Backup Plan</th>
-            <th class="px-3 py-2"></th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function pickForm(p) {
-  const isEdit = !!p;
-  return `
-    <div class="px-5 py-4">
-      <h3 class="font-bold text-gray-900 mb-4">${isEdit?'Edit':'Add'} Picklist Item</h3>
-      <div class="space-y-3">
-        <input id="pk-name" placeholder="Fixture name *" value="${esc(p?.fixtureName||'')}"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
-        <input id="pk-needed-by" type="date" value="${p?.neededBy||''}"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-medium text-gray-600">Qty On Hand</label>
-            <input id="pk-onhand" type="number" min="0" value="${p?.qtyOnHand??0}"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 mt-1">
-          </div>
-          <div>
-            <label class="text-xs font-medium text-gray-600">Qty Needed</label>
-            <input id="pk-needed" type="number" min="0" value="${p?.qtyNeeded??0}"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400 mt-1">
-          </div>
-        </div>
-        <textarea id="pk-backup" placeholder="Backup plan if critical item is missing…" rows="2"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-blue-400"
-          >${esc(p?.backupPlan||'')}</textarea>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="pk-critical" ${p?.critical?'checked':''} class="rounded"> 🚨 Critical
-          </label>
-          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-            <input type="checkbox" id="pk-ordered" ${p?.ordered?'checked':''} class="rounded"> ✅ Ordered
-          </label>
-        </div>
-        <div class="flex gap-2 pt-2">
-          <button onclick="${isEdit?`saveEditPickItem('${p.id}')`:'saveNewPickItem()'}"
-            class="flex-1 bg-purple-700 text-white rounded-lg py-2 text-sm font-semibold hover:bg-purple-800">
-            ${isEdit?'Save Changes':'Add Item'}
-          </button>
-          <button onclick="closeModal()"
-            class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">Cancel</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function openAddPickItem() { document.getElementById('modal-content').innerHTML=pickForm(); showModal(); }
-
-function saveNewPickItem() {
-  const name = document.getElementById('pk-name').value.trim();
-  if (!name) return;
-  const store = getStore();
-  store.picklist.push({
-    id:uid(), fixtureName:name,
-    neededBy:document.getElementById('pk-needed-by').value,
-    qtyOnHand:+document.getElementById('pk-onhand').value||0,
-    qtyNeeded:+document.getElementById('pk-needed').value||0,
-    backupPlan:document.getElementById('pk-backup').value.trim(),
-    critical:document.getElementById('pk-critical').checked,
-    ordered:document.getElementById('pk-ordered').checked,
-    createdAt:new Date().toISOString(),
-  });
-  save(store); closeModal(); renderPicklist();
-}
-
-function editPickItem(id) {
-  const store = getStore();
-  const p = store.picklist.find(x=>x.id===id);
-  if (!p) return;
-  document.getElementById('modal-content').innerHTML = pickForm(p); showModal();
-}
-
-function saveEditPickItem(id) {
-  const store = getStore();
-  const p = store.picklist.find(x=>x.id===id);
-  if (!p) return;
-  p.fixtureName=document.getElementById('pk-name').value.trim();
-  p.neededBy=document.getElementById('pk-needed-by').value;
-  p.qtyOnHand=+document.getElementById('pk-onhand').value||0;
-  p.qtyNeeded=+document.getElementById('pk-needed').value||0;
-  p.backupPlan=document.getElementById('pk-backup').value.trim();
-  p.critical=document.getElementById('pk-critical').checked;
-  p.ordered=document.getElementById('pk-ordered').checked;
-  save(store); closeModal(); renderPicklist();
-}
-
-function deletePickItem(id) {
-  if (!confirm('Delete this picklist item?')) return;
-  const store = getStore();
-  store.picklist = store.picklist.filter(x=>x.id!==id);
-  save(store); renderPicklist();
-}
-
-// ════════════════════════════════════════════════════════════════
-//  FUTURE WALK TAB
-// ════════════════════════════════════════════════════════════════
-const WALK_STATUSES = ['Present','Ordered','Missing','TBD'];
-
-function renderWalk() {
-  const store = getStore();
-  const walks  = store.walk.sort((a,b)=>a.targetDate.localeCompare(b.targetDate));
-  const issues = walks.filter(w=>w.fixtureStatus==='Missing'||w.issues);
-
-  const alertHtml = issues.length ? `
-    <div class="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 mb-4">
-      <p class="text-amber-800 font-bold text-xs uppercase tracking-wide mb-1">⚠️ Issues Found — Check These Areas</p>
-      ${issues.map(w=>`<div class="text-sm text-amber-800">• ${esc(w.areaName)} (${esc(w.targetDate)})${w.issues?` — ${esc(w.issues.slice(0,80))}`:''}</div>`).join('')}
-    </div>` : '';
-
-  const rows = walks.length ? walks.map(w=>`
-    <tr class="border-b border-gray-50 hover:bg-gray-50 ${w.fixtureStatus==='Missing'?'bg-red-50':''}">
-      <td class="px-3 py-2 text-sm font-medium">${esc(w.areaName)}</td>
-      <td class="px-3 py-2 text-sm text-gray-600">${esc(w.targetDate||'')}</td>
-      <td class="px-3 py-2 text-sm text-gray-400">${esc(w.walkDate||'')}</td>
-      <td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded-full font-medium ${walkStatusColor(w.fixtureStatus)}">${esc(w.fixtureStatus||'TBD')}</span></td>
-      <td class="px-3 py-2 text-sm">${w.ordered?'✅':'◻️'}</td>
-      <td class="px-3 py-2 text-xs text-gray-500">${esc((w.issues||'').slice(0,60))}</td>
-      <td class="px-3 py-2">
-        <button onclick="editWalk('${w.id}')" class="text-xs text-blue-500 hover:underline mr-2">edit</button>
-        <button onclick="deleteWalk('${w.id}')" class="text-xs text-red-400 hover:underline">del</button>
-      </td>
-    </tr>`).join('') :
-    `<tr><td colspan="7" class="px-3 py-6 text-center text-gray-400 italic text-sm">No future walk entries yet.</td></tr>`;
-
-  document.getElementById('tab-content-walk').innerHTML = `
-    ${alertHtml}
-    <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-      <div class="bg-cyan-700 text-white px-4 py-3 flex items-center justify-between">
-        <span class="font-bold text-sm">🔮 Future Walk — Next 2 Weeks</span>
-        <button onclick="openAddWalk()" class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-lg">+ Add Area</button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left" style="min-width:600px">
-          <thead><tr class="bg-gray-50 text-xs text-gray-500 uppercase">
-            <th class="px-3 py-2">Area</th><th class="px-3 py-2">Target Date</th>
-            <th class="px-3 py-2">Walk Date</th><th class="px-3 py-2">Fixtures</th>
-            <th class="px-3 py-2">Ordered</th><th class="px-3 py-2">Issues</th>
-            <th class="px-3 py-2"></th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function walkStatusColor(s) {
-  return {Present:'bg-green-100 text-green-800',Ordered:'bg-blue-100 text-blue-700',Missing:'bg-red-100 text-red-700',TBD:'bg-gray-100 text-gray-600'}[s]||'bg-gray-100 text-gray-600';
-}
-
-function walkForm(w) {
-  const isEdit=!!w;
-  return `
-    <div class="px-5 py-4">
-      <h3 class="font-bold text-gray-900 mb-4">${isEdit?'Edit':'Add'} Future Walk Area</h3>
-      <div class="space-y-3">
-        <input id="wf-area" placeholder="Area name *" value="${esc(w?.areaName||'')}"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-400">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-medium text-gray-600">Target Date</label>
-            <input id="wf-target" type="date" value="${w?.targetDate||''}"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1">
-          </div>
-          <div>
-            <label class="text-xs font-medium text-gray-600">Walk Date</label>
-            <input id="wf-walk" type="date" value="${w?.walkDate||''}"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1">
-          </div>
-        </div>
-        <select id="wf-status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-          ${WALK_STATUSES.map(s=>`<option ${(w?.fixtureStatus||'TBD')===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-        <textarea id="wf-issues" placeholder="Issues found…" rows="2"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-blue-400"
-          >${esc(w?.issues||'')}</textarea>
-        <textarea id="wf-followup" placeholder="Ordering follow-up notes…" rows="2"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-blue-400"
-          >${esc(w?.followup||'')}</textarea>
-        <label class="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" id="wf-ordered" ${w?.ordered?'checked':''} class="rounded"> ✅ Fixtures Ordered
-        </label>
-        <div class="flex gap-2 pt-2">
-          <button onclick="${isEdit?`saveEditWalk('${w.id}')`:'saveNewWalk()'}"
-            class="flex-1 bg-cyan-700 text-white rounded-lg py-2 text-sm font-semibold hover:bg-cyan-800">
-            ${isEdit?'Save Changes':'Add Area'}
-          </button>
-          <button onclick="closeModal()"
-            class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-200">Cancel</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function openAddWalk() { document.getElementById('modal-content').innerHTML=walkForm(); showModal(); }
-
-function saveNewWalk() {
-  const area = document.getElementById('wf-area').value.trim();
-  if (!area) return;
-  const store = getStore();
-  store.walk.push({
-    id:uid(), areaName:area,
-    targetDate:document.getElementById('wf-target').value,
-    walkDate:document.getElementById('wf-walk').value,
-    fixtureStatus:document.getElementById('wf-status').value,
-    issues:document.getElementById('wf-issues').value.trim(),
-    followup:document.getElementById('wf-followup').value.trim(),
-    ordered:document.getElementById('wf-ordered').checked,
-  });
-  save(store); closeModal(); renderWalk();
-  // Auto-create obstacle if fixtures missing
-  const s = document.getElementById('wf-status')?.value;
-  if (s==='Missing') {
-    const store2=getStore();
-    store2.tasks.push({id:uid(),list:'obstacles',text:`FIXTURE ISSUE: ${area} — fixtures missing, needs escalation`,owner:'',critical:true,blocked:false,done:false,createdAt:new Date().toISOString()});
-    save(store2); renderBadges();
-  }
-}
-
-function editWalk(id) {
-  const store=getStore(); const w=store.walk.find(x=>x.id===id);
-  if(!w) return;
-  document.getElementById('modal-content').innerHTML=walkForm(w); showModal();
-}
-
-function saveEditWalk(id) {
-  const store=getStore(); const w=store.walk.find(x=>x.id===id);
-  if(!w) return;
-  w.areaName=document.getElementById('wf-area').value.trim();
-  w.targetDate=document.getElementById('wf-target').value;
-  w.walkDate=document.getElementById('wf-walk').value;
-  w.fixtureStatus=document.getElementById('wf-status').value;
-  w.issues=document.getElementById('wf-issues').value.trim();
-  w.followup=document.getElementById('wf-followup').value.trim();
-  w.ordered=document.getElementById('wf-ordered').checked;
-  save(store); closeModal(); renderWalk();
-}
-
-function deleteWalk(id) {
-  if(!confirm('Delete this walk entry?')) return;
-  const store=getStore(); store.walk=store.walk.filter(x=>x.id!==id);
-  save(store); renderWalk();
-}
-
-// ════════════════════════════════════════════════════════════════
-//  CLOSEOUT TAB
-// ════════════════════════════════════════════════════════════════
-const CO_CHECKS = [
-  {id:'notes_done',   label:'📝 Notes finalized'},
-  {id:'trailer',      label:'🚚 Trailer staged'},
-  {id:'followups',    label:'📧 Final follow-ups sent'},
-  {id:'tomorrow',     label:'✅ Tomorrow is ready and clear'},
-  {id:'picklist_done',label:'📋 Picklist complete'},
-];
-
-function getCoData() {
-  const store=getStore();
-  if (!store.closeout[state.date]) store.closeout[state.date]={checks:{},notes:''};
-  return store.closeout[state.date];
-}
-
-function saveCoData(co) {
-  const store=getStore();
-  store.closeout[state.date]=co;
-  save(store);
-}
-
-function renderCloseout() {
-  const co=getCoData();
-  const doneCount=CO_CHECKS.filter(c=>co.checks[c.id]).length;
-  const allDone=doneCount===CO_CHECKS.length;
-  const pct=Math.round(doneCount/CO_CHECKS.length*100);
-
-  const checkHtml=CO_CHECKS.map(c=>`
-    <div class="flex items-center gap-3 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 px-2 rounded"
-         onclick="toggleCo('${c.id}')">
-      <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0
-                  ${co.checks[c.id]?'bg-green-500':'border-2 border-gray-300'}">
-        ${co.checks[c.id]?'<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>':''}
-      </div>
-      <span class="text-sm ${co.checks[c.id]?'line-through text-gray-400':'text-gray-800 font-medium'}">${c.label}</span>
-    </div>`).join('');
-
-  document.getElementById('tab-content-closeout').innerHTML = `
-    <div class="max-w-xl mx-auto space-y-4">
-      <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-        <div class="bg-gray-800 text-white px-4 py-3 flex items-center justify-between">
-          <span class="font-bold">🔒 Closeout — ${state.date}</span>
-          <span class="text-sm font-semibold ${allDone?'text-green-400':'text-yellow-300'}">${doneCount}/${CO_CHECKS.length} Done</span>
-        </div>
-        <div class="px-2">
-          ${checkHtml}
-        </div>
-        <div class="px-4 pb-2">
-          <div class="h-2 bg-gray-100 rounded-full mt-3 mb-1 overflow-hidden">
-            <div class="h-full rounded-full transition-all ${allDone?'bg-green-500':'bg-blue-500'}" style="width:${pct}%"></div>
-          </div>
-          <p class="text-xs text-gray-500 text-right">${pct}% complete</p>
-        </div>
-      </div>
-      <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-        <div class="bg-gray-700 text-white px-4 py-2 text-sm font-bold">📝 Closeout Notes (for overnight crew)</div>
-        <div class="p-4">
-          <textarea id="co-notes" placeholder="Write notes for the overnight crew, known issues, instructions…" rows="5"
-            onblur="saveCoNotes(this.value)"
-            class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:border-blue-400"
-            >${esc(co.notes||'')}</textarea>
-        </div>
-      </div>
-      ${allDone?`<div class="bg-green-50 border border-green-200 rounded-xl px-4 py-4 text-center">
-        <div class="text-3xl mb-2">✅</div>
-        <div class="font-bold text-green-800">Closeout Complete!</div>
-        <div class="text-sm text-green-600 mt-1">Clean handoff. Good work today.</div>
-      </div>`:''}
-    </div>`;
-}
-
-function toggleCo(checkId) {
-  const co=getCoData();
-  co.checks[checkId]=!co.checks[checkId];
-  saveCoData(co); renderCloseout();
-}
-
-function saveCoNotes(val) {
-  const co=getCoData();
-  co.notes=val;
-  saveCoData(co);
-}
-
-// ════════════════════════════════════════════════════════════════
-//  WEEKLY TAB
-// ════════════════════════════════════════════════════════════════
-function renderWeekly() {
+// ── WEEKLY ────────────────────────────────────────────────────────────────────
+function renderWeekly(){
   const today=new Date();
   const dow=today.getDay();
   const monday=new Date(today); monday.setDate(today.getDate()-(dow===0?6:dow-1));
@@ -1246,27 +825,27 @@ function renderWeekly() {
     const dayName=DAY_NAMES[dn.getDay()];
     const blocks=getBlocks(ds);
     const dayBlocks=store.blocks[ds]||{};
-    const total=blocks.filter(b=>!b.isLunch).length;
-    const done=blocks.filter(b=>!b.isLunch&&(dayBlocks[b.id]||{}).status==='done').length;
+    const workBlocks=blocks.filter(b=>!b.isLunch);
+    const total=workBlocks.length;
+    const done=workBlocks.filter(b=>(dayBlocks[b.id]||{}).status==='done').length;
     const pct=total?Math.round(done/total*100):0;
     const note=WEEKLY_NOTES[dayName]||'';
     const isToday=ds===isoToday();
-
     return `
       <div class="bg-white rounded-xl border ${isToday?'border-blue-300 ring-2 ring-blue-200':'border-gray-100'} overflow-hidden shadow-sm">
         <div class="px-4 py-3 flex items-center justify-between ${isToday?'bg-blue-50':'bg-gray-50'}">
-          <div>
+          <div class="flex items-center gap-2">
             <span class="font-bold text-gray-900">${dayName}</span>
-            <span class="text-xs text-gray-500 ml-2">${new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
-            ${isToday?'<span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full ml-2 font-bold">TODAY</span>':''}
+            <span class="text-xs text-gray-500">${dn.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+            ${isToday?'<span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">TODAY</span>':''}
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-gray-500">${done}/${total}</span>
             <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full rounded-full ${pct===100?'bg-green-500':'bg-blue-500'}" style="width:${pct}%"></div>
+              <div class="h-full rounded-full ${pct===100?'bg-green-500':'bg-[#0053e2]'}" style="width:${pct}%"></div>
             </div>
             <button onclick="setDate('${ds}');setTab('timeline')"
-              class="text-xs text-blue-600 hover:underline">View →</button>
+              class="text-xs text-blue-600 hover:underline ml-1">View →</button>
           </div>
         </div>
         ${note?`<div class="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-t border-amber-100 font-medium">${note}</div>`:''}
@@ -1278,58 +857,46 @@ function renderWeekly() {
       <div class="bg-gray-800 text-white px-4 py-2 text-sm font-bold">📅 Fixed Weekly Cadence</div>
       <div class="divide-y divide-gray-50">
         ${[
-          ['Tuesday', '📋 Planning Lock-In — finalize weekly plan, confirm phasing, complete weekly planner, review GC/flooring, finalize Adobe PDFs.'],
-          ['Wednesday','🔧 Pre-Entry for JSR + Update REXPRT. Make everything clear and accessible.'],
-          ['Thursday', '⚠️ JSR DUE BY 9:00 AM. Follow up on all outstanding issues and risks.'],
-          ['Friday',   '⚠️ Weekly Summary DUE BY 9:00 AM. Covers progress, risks, key updates. Rest of day: admin, resolve follow-ups, prep notes for Sunday.'],
+          ['Tuesday', 'Planning Lock-In — finalize weekly plan, confirm phasing, complete weekly planner, review GC/flooring, finalize Adobe PDFs.'],
+          ['Wednesday','Pre-Entry for JSR + Update REXPRT. Make everything clear and accessible.'],
+          ['Thursday', '⚠️ JSR DUE BY 9:00 AM — first thing. Follow up on all outstanding issues.'],
+          ['Friday',   '⚠️ Weekly Summary DUE BY 9:00 AM — send before anything else. Rest of day: admin, resolve follow-ups, prep for Sunday.'],
         ].map(([d,n])=>`
           <div class="px-4 py-3 flex gap-3 text-sm">
             <span class="font-bold text-gray-700 w-24 shrink-0">${d}</span>
             <span class="text-gray-600">${n}</span>
           </div>`).join('')}
       </div>
-    </div>`;
-
-  const trackingRules=`
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-4">
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-3">
       <div class="bg-gray-800 text-white px-4 py-2 text-sm font-bold">📋 Tracking Rules</div>
-      <div class="px-4 py-3 text-sm text-gray-700 space-y-2">
-        <div>• Keep only <strong>3 lists</strong>: Today, Obstacles, Upcoming.</div>
-        <div>• <strong>Past due</strong> → escalate same day.</div>
-        <div>• <strong>24 hours</strong> without resolution → follow up.</div>
-        <div>• <strong>48 hours</strong> → escalate immediately, no exceptions.</div>
-        <div>• If it doesn't fit a list, it waits.</div>
+      <div class="px-4 py-3 text-sm text-gray-700 space-y-1.5">
+        <div>• Three lists only: <strong>Today</strong>, <strong>Obstacles</strong>, <strong>Upcoming</strong>. If it doesn't fit, it waits.</div>
+        <div>• <strong>Past due</strong> → escalate same day. No exceptions.</div>
+        <div>• <strong>24 hours</strong> → follow up. <strong>48 hours</strong> → escalate immediately.</div>
+        <div>• Every task in Today must have an owner.</div>
       </div>
     </div>`;
 
-  document.getElementById('tab-content-weekly').innerHTML = `<div class="space-y-2">${rows}</div>${cadence}${trackingRules}`;
+  document.getElementById('tab-content-weekly').innerHTML=`<div class="space-y-2">${rows}</div>${cadence}`;
 }
 
-// ════════════════════════════════════════════════════════════════
-//  MODAL HELPERS
-// ════════════════════════════════════════════════════════════════
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
 function showModal()  { document.getElementById('modal').classList.remove('hidden'); }
 function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
-
-// ════════════════════════════════════════════════════════════════
-//  UTILITIES
-// ════════════════════════════════════════════════════════════════
-function esc(s) {
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s){
   return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ════════════════════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════════════════════
-function init() {
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init(){
   setDate(isoToday());
   setTab('timeline');
-  // Refresh header + nudges every 60 seconds
-  setInterval(()=>{ render(); }, 60000);
+  setInterval(render, 60000);
 }
-
 init();
 </script>
 </body>
