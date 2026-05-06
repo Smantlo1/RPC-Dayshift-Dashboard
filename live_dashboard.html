@@ -425,10 +425,18 @@ function renderTimeline() {
     const statusOpts = ['pending','in-progress','done','skipped','blocked'].map(s=>
       `<option value="${s}" ${s===status?'selected':''}>${s}</option>`).join('');
 
-    const tasksHtml = (b.tasks||[]).map(t=>`
-      <li class="flex items-start gap-2 text-sm text-gray-700">
-        <span class="mt-0.5 text-gray-400">•</span>${esc(t)}
-      </li>`).join('');
+    const taskChecks = bData.taskChecks || {};
+    const tasksHtml = (b.tasks||[]).map((t,i)=>{
+      const checked = !!taskChecks[i];
+      return `
+      <li class="flex items-start gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5"
+          onclick="toggleBlockTask('${b.id}',${i})">
+        <div class="mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0
+                    ${checked?'bg-[#0053e2] border-[#0053e2]':'border-gray-300'}">
+          ${checked?'<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>':''}
+        </div>
+        <span class="${checked?'line-through text-gray-400':'text-gray-700'}">${esc(t)}</span>
+      </li>`;}).join('');
 
     return `
     <details class="bg-white rounded-xl border ${isCurrent?'border-blue-300':'border-gray-100'} ${ringClass} overflow-hidden" ${isCurrent?'open':''}>
@@ -463,6 +471,17 @@ function renderTimeline() {
   }).join('');
 
   document.getElementById('tab-content-timeline').innerHTML = `<div class="space-y-2">${html}</div>`;
+}
+
+function toggleBlockTask(blockId, taskIdx) {
+  const store = getStore();
+  if (!store.blocks[state.date]) store.blocks[state.date] = {};
+  if (!store.blocks[state.date][blockId]) store.blocks[state.date][blockId] = {};
+  if (!store.blocks[state.date][blockId].taskChecks) store.blocks[state.date][blockId].taskChecks = {};
+  const cur = store.blocks[state.date][blockId].taskChecks[taskIdx];
+  store.blocks[state.date][blockId].taskChecks[taskIdx] = !cur;
+  save(store);
+  renderTimeline();
 }
 
 function setBlockStatus(blockId, field, val) {
