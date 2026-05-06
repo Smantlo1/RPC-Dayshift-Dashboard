@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Date + Nudge Header -->
 <div class="max-w-7xl mx-auto px-4 pt-4 pb-2">
 
   <!-- Date selector + day title -->
@@ -19,12 +18,19 @@
       <form method="get" action="/" class="flex items-center gap-2">
         <input type="hidden" name="tab" value="{{ tab }}"/>
         <input type="date" name="date" value="{{ target_date }}"
-               class="border border-wm-gray50 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-wm-blue"
+               class="border border-wm-gray50 rounded px-2 py-1 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-wm-blue"
                onchange="this.form.submit()"/>
       </form>
       <a href="/?date={{ target_date }}&tab={{ tab }}"
-         class="text-xs bg-white border border-wm-gray50 px-3 py-1.5 rounded hover:bg-wm-gray10 transition">
+         class="text-xs bg-white border border-wm-gray50 px-3 py-1.5 rounded
+                hover:bg-wm-gray10 transition">
         ↺ Refresh
+      </a>
+      <a href="/weekly"
+         class="text-xs bg-white border border-wm-gray50 px-3 py-1.5 rounded
+                hover:bg-wm-gray10 transition">
+        📅 Week View
       </a>
     </div>
   </div>
@@ -48,7 +54,7 @@
   </div>
   {% endif %}
 
-  <!-- Status badges row -->
+  <!-- Status badges -->
   <div class="flex flex-wrap gap-2 mb-4 text-xs">
     {% if unowned_count > 0 %}
     <span class="bg-red-100 text-red-700 border border-red-300 px-2 py-1 rounded-full font-semibold">
@@ -57,16 +63,11 @@
     {% endif %}
     {% if flagged_proj_count > 0 %}
     <span class="bg-orange-100 text-orange-700 border border-orange-300 px-2 py-1 rounded-full font-semibold">
-      📁 {{ flagged_proj_count }} Project Issue{{ 's' if flagged_proj_count != 1 }}
-    </span>
-    {% endif %}
-    {% if zero_onhand_count > 0 %}
-    <span class="bg-red-100 text-red-700 border border-red-300 px-2 py-1 rounded-full font-semibold">
-      📦 {{ zero_onhand_count }} Zero On-Hand
+      📊 {{ flagged_proj_count }} Tracking Issue{{ 's' if flagged_proj_count != 1 }}
     </span>
     {% endif %}
     {% if critical_tasks %}
-    <span class="bg-red-600 text-white px-2 py-1 rounded-full font-semibold">
+    <span class="bg-red-600 text-white px-2 py-1 rounded-full fontibold">
       🚨 {{ critical_tasks | length }} Critical/Blocked
     </span>
     {% endif %}
@@ -75,12 +76,19 @@
       &nbsp;|&nbsp; 🚧 Obstacles: {{ task_summary.get('obstacles', 0) }}
       &nbsp;|&nbsp; 🔜 Upcoming: {{ task_summary.get('upcoming', 0) }}
     </span>
+    <a href="{{ tracking_view_url }}" target="_blank"
+       class="bg-green-100 text-green-800 border border-green-300 px-2 py-1 rounded-full
+              font-semibold hover:bg-green-200 transition">
+      📊 Open Tracking Sheet ↗
+    </a>
   </div>
 
   <!-- Critical tasks quick-view -->
   {% if critical_tasks %}
   <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
-    <p class="text-red-700 font-bold text-xs uppercase tracking-wide mb-2">🚨 Critical / Blocked — Needs Attention Now</p>
+    <p class="text-red-700 font-bold text-xs uppercase tracking-wide mb-2">
+      🚨 Critical / Blocked — Needs Attention Now
+    </p>
     <ul class="space-y-1">
       {% for t in critical_tasks %}
       <li class="flex items-center gap-2 text-sm">
@@ -97,15 +105,12 @@
   </div>
   {% endif %}
 
-  <!-- Tab navigation -->
-  <div class="flex flex-wrap gap-1 border-b border-wm-gray50 mb-4">
+  <!-- Tab navigation — 3 tabs only -->
+  <div class="flex gap-1 border-b border-wm-gray50 mb-4">
     {% set tabs = [
-      ('timeline',    '🕐 Timeline'),
-      ('tasks',       '📋 Tasks'),
-      ('projects',    '📁 Projects'),
-      ('picklist',    '📦 Picklist'),
-      ('future_walk', '🚶 Future Walk'),
-      ('closeout',    '✅ Closeout'),
+      ('timeline',  '🕐 Timeline'),
+      ('tasks',     '📋 Tasks'),
+      ('tracking',  '📊 Tracking Sheets'),
     ] %}
     {% for t_id, t_label in tabs %}
     <a href="/?date={{ target_date }}&tab={{ t_id }}"
@@ -121,7 +126,7 @@
     {% endfor %}
   </div>
 
-  <!-- Tab content area -->
+  <!-- Tab content -->
   <div id="tab-content">
     {% if tab == 'timeline' %}
       <div hx-get="/blocks/timeline?date={{ target_date }}"
@@ -139,36 +144,12 @@
         <div class="text-center text-wm-gray100 py-8">Loading tasks…</div>
       </div>
 
-    {% elif tab == 'projects' %}
+    {% elif tab == 'tracking' %}
       <div hx-get="/projects/"
            hx-trigger="load"
            hx-target="#tab-content"
            hx-swap="innerHTML">
-        <div class="text-center text-wm-gray100 py-8">Loading projects…</div>
-      </div>
-
-    {% elif tab == 'picklist' %}
-      <div hx-get="/picklist/?date={{ target_date }}"
-           hx-trigger="load"
-           hx-target="#tab-content"
-           hx-swap="innerHTML">
-        <div class="text-center text-wm-gray100 py-8">Loading picklist…</div>
-      </div>
-
-    {% elif tab == 'future_walk' %}
-      <div hx-get="/future-walk/?walk_date={{ target_date }}"
-           hx-trigger="load"
-           hx-target="#tab-content"
-           hx-swap="innerHTML">
-        <div class="text-center text-wm-gray100 py-8">Loading future walk…</div>
-      </div>
-
-    {% elif tab == 'closeout' %}
-      <div hx-get="/closeout/?date={{ target_date }}"
-           hx-trigger="load"
-           hx-target="#tab-content"
-           hx-swap="innerHTML">
-        <div class="text-center text-wm-gray100 py-8">Loading closeout…</div>
+        <div class="text-center text-wm-gray100 py-8">Loading tracking sheets…</div>
       </div>
     {% endif %}
   </div>

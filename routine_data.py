@@ -165,7 +165,7 @@ BASELINE_BLOCKS: list[TimeBlock] = [
             {"id": "pl_backup", "text": "Prepare backup plan for critical shortages"},
         ],
         "output": "Picklist started, critical gaps flagged, escalation in motion.",
-        "module": "picklist",
+        "module": None,
         "is_lunch": False,
     },
     {
@@ -200,7 +200,7 @@ BASELINE_BLOCKS: list[TimeBlock] = [
             {"id": "fw_escalate", "text": "Escalate anything that cannot be self-resolved"},
         ],
         "output": "Confidence that next two weeks will not fail due to preventable issues.",
-        "module": "future_walk",
+        "module": None,
         "is_lunch": False,
     },
     {
@@ -210,22 +210,22 @@ BASELINE_BLOCKS: list[TimeBlock] = [
         "start_hour": 13.0,
         "end_hour": 14.0,
         "description": (
-            "Finish notes. Complete and finalize the picklist. Send final follow-ups. "
-            "Prepare anything that can get you ahead for tomorrow. "
-            "Ask: Is overnight set up to succeed? Is tomorrow clear? "
-            "Hand off clean — completed picklist, no confusion going into the night."
+            "Finish and send overnight notes. Send any final follow-ups still outstanding. "
+            "Prepare anything that gets you ahead for tomorrow. "
+            "Ask two questions before you leave: Is overnight set up to succeed? Is tomorrow clear? "
+            "A clean handoff means no confusion going into the night."
         ),
         "checklist": [
-            {"id": "co_notes", "text": "Finish and finalize overnight notes"},
-            {"id": "co_picklist", "text": "Complete and finalize picklist"},
-            {"id": "co_followups", "text": "Send final follow-ups"},
-            {"id": "co_tomorrow", "text": "Prepare anything to get ahead for tomorrow"},
-            {"id": "co_overnight", "text": "Confirm overnight is set up to succeed"},
-            {"id": "co_clear", "text": "Confirm tomorrow is clear with no blockers"},
-            {"id": "co_trailer", "text": "Confirm trailer staging is correct"},
+            {"id": "co_notes",    "text": "Finish and send overnight notes to third shift"},
+            {"id": "co_followups","text": "Send all final follow-ups — nothing left waiting"},
+            {"id": "co_trailer",  "text": "Confirm trailer staging is correct"},
+            {"id": "co_tomorrow", "text": "Prep anything that gets you ahead for tomorrow"},
+            {"id": "co_tracking", "text": "Confirm Tracking Sheet is fully updated"},
+            {"id": "co_overnight","text": "Is overnight set up to succeed? (Y/N)"},
+            {"id": "co_clear",    "text": "Is tomorrow clear of blockers? (Y/N)"},
         ],
-        "output": "Clean handoff, completed picklist, no confusion going into the night.",
-        "module": "closeout",
+        "output": "Clean handoff — notes sent, follow-ups done, tomorrow is ready.",
+        "module": None,
         "is_lunch": False,
     },
 ]
@@ -410,6 +410,18 @@ WEEKLY_CADENCE = {
     "Thursday": "JSR due by 9:00 AM — no exceptions.",
     "Friday": "Weekly Summary due by 9:00 AM — leave site controlled.",
 }
+
+# Tracking sheet — live Excel file hosted in SharePoint/Teams
+TRACKING_SHEET_VIEW_URL = (
+    "https://teams.wal-mart.com/sites/5845NicevilleFL/Shared%20Documents/"
+    "5845%20Niceville,%20FL/5845_Tracker_LIVE_v6%20(1).xlsx?web=1"
+)
+TRACKING_SHEET_EMBED_URL = (
+    "https://teams.wal-mart.com/sites/5845NicevilleFL/Shared%20Documents/"
+    "5845%20Niceville,%20FL/5845_Tracker_LIVE_v6%20(1).xlsx"
+    "?action=embedview&wdAllowInteractivity=True&wdHideHeaders=False"
+    "&wdDownloadButton=True&wdInConfigurator=True"
+)
 
 # Block status options
 BLOCK_STATUSES = ["pending", "in-progress", "done", "skipped"]

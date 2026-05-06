@@ -19,6 +19,8 @@ from routine_data import (
     TRACKING_RULES,
     WEEKLY_CADENCE,
     PROJECT_CATEGORIES,
+    TRACKING_SHEET_VIEW_URL,
+    TRACKING_SHEET_EMBED_URL,
 )
 from routers import blocks, tasks, projects, picklist, future_walk, closeout
 
@@ -155,12 +157,9 @@ async def dashboard(request: Request, date: str = "", tab: str = "timeline"):
         )
         flagged_proj_count = flagged_projects[0]["cnt"] if flagged_projects else 0
 
-        # Picklist zero on-hands
-        zero_oh = await db.execute_fetchall(
-            "SELECT COUNT(*) as cnt FROM picklist WHERE date=? AND qty_onhand=0 AND is_ordered=0",
-            (target,),
-        )
-        zero_onhand_count = zero_oh[0]["cnt"] if zero_oh else 0
+    # Normalise tab alias: 'projects' still works for old bookmarks
+    if tab == "projects":
+        tab = "tracking"
 
     nudges = get_nudges(d.weekday(), hour, blocks_status)
     day_name = d.strftime("%A")
@@ -178,10 +177,9 @@ async def dashboard(request: Request, date: str = "", tab: str = "timeline"):
             "critical_tasks": critical_tasks,
             "unowned_count": unowned_count,
             "flagged_proj_count": flagged_proj_count,
-            "zero_onhand_count": zero_onhand_count,
             "priority_rules": PRIORITY_RULES,
             "weekly_note": weekly_note,
-            "categories": PROJECT_CATEGORIES,
+            "tracking_view_url": TRACKING_SHEET_VIEW_URL,
             "now_str": now.strftime("%I:%M %p"),
         },
     )

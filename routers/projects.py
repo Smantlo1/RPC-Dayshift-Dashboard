@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from database import get_db
-from routine_data import PROJECT_CATEGORIES, PROJECT_STATUSES
+from routine_data import PROJECT_CATEGORIES, PROJECT_STATUSES, TRACKING_SHEET_VIEW_URL, TRACKING_SHEET_EMBED_URL
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 templates = Jinja2Templates(directory="templates")
@@ -41,6 +41,8 @@ async def _render(request: Request) -> HTMLResponse:
             "flagged": flagged,
             "categories": PROJECT_CATEGORIES,
             "statuses": PROJECT_STATUSES,
+            "embed_url": TRACKING_SHEET_EMBED_URL,
+            "view_url": TRACKING_SHEET_VIEW_URL,
         },
     )
 

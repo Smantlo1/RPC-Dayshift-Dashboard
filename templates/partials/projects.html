@@ -1,168 +1,312 @@
-{# partials/projects.html — Project tracking: fixtures, signage, displays, RPS, SET #}
+{# partials/projects.html — Tracking Sheets tab
+   Primary: live SharePoint Excel embed (with open-in-tab fallback always visible)
+   Secondary: per-category status summary from local dashboard log
+   Tertiary: collapsible local project log for dashboard annotations #}
 
-<div class="pb-8">
+<div class="pb-8 space-y-5">
 
-  <!-- Summary alert bar -->
-  {% if flagged %}
-  <div class="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-5">
-    <p class="text-red-700 font-bold text-sm mb-2">⚠️ {{ flagged | length }} Project(s) Need Attention</p>
-    <ul class="space-y-1">
-      {% for p in flagged %}
-      <li class="text-sm flex items-center gap-2">
-        <span class="text-red-400">•</span>
-        <strong>[{{ p.category }}]</strong> {{ p.name }}
-        <span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{{ p.status }}</span>
-        {% if not p.owner %}
-        <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">NO OWNER</span>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+  {# ── 1. LIVE TRACKING SHEET EMBED ─────────────────────────────────────── #}
+  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 overflow-hidden">
 
-  <!-- Add new project form -->
-  <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4 mb-5">
-    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">➕ Add Project / Ticket</p>
-    <form hx-post="/projects/add"
-          hx-target="#projects-content"
-          hx-swap="innerHTML"
-          class="flex flex-wrap gap-2 items-end">
-      <select name="category"
-              class="border border-wm-gray50 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wm-blue">
-        {% for cat in categories %}
-        <option>{{ cat }}</option>
-        {% endfor %}
-      </select>
-      <input type="text" name="name" required placeholder="Project / ticket name"
-             class="flex-1 min-w-48 border border-wm-gray50 rounded px-3 py-2 text-sm
-                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
-      <input type="text" name="owner" placeholder="Owner"
-             class="w-32 border border-wm-gray50 rounded px-2 py-2 text-sm
-                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
-      <input type="date" name="due_date"
-             class="border border-wm-gray50 rounded px-2 py-2 text-sm
-                    focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
-      <select name="status"
-              class="border border-wm-gray50 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wm-blue">
-        {% for s in statuses %}
-        <option>{{ s }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit"
-              class="bg-wm-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-wm-bluehov transition">
-        Add
-      </button>
-    </form>
-  </div>
+    {# Header row: title + always-visible open button #}
+    <div class="flex flex-wrap items-center justify-between gap-3
+                px-4 py-3 bg-wm-gray10 border-b border-wm-gray50">
+      <div>
+        <p class="font-bold text-sm text-wm-gray160">5845 Live Tracking Sheet</p>
+        <p class="text-xs text-wm-gray100 mt-0.5">
+          5845_Tracker_LIVE_v6 &nbsp;·&nbsp; SharePoint / Teams
+        </p>
+      </div>
+      <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1.5 bg-wm-blue text-white
+                px-4 py-2 rounded-lg text-sm font-semibold
+                hover:bg-wm-bluehov transition flex-shrink-0">
+        Open Tracking Sheet ↗
+      </a>
+    </div>
 
-  <!-- Project groups -->
-  <div id="projects-content" class="space-y-4">
-    {% for cat in categories %}
-    {% set cat_projects = grouped.get(cat, []) %}
-    <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 overflow-hidden">
-      <!-- Category header -->
-      <div class="bg-wm-gray10 px-4 py-3 border-b border-wm-gray50 flex items-center justify-between">
-        <span class="font-bold text-sm text-wm-gray160">{{ cat }}</span>
-        <span class="text-xs text-wm-gray100 font-medium">
-          {{ cat_projects | length }} item{{ 's' if cat_projects | length != 1 }}
-          {% set overdue_cnt = cat_projects | selectattr('status', 'in', ['Overdue', 'Blocked']) | list | length %}
-          {% if overdue_cnt > 0 %}
-          — <span class="text-red-600 font-semibold">{{ overdue_cnt }} issue(s)</span>
-          {% endif %}
-        </span>
+    {# Embed iframe — SharePoint supports ?action=embedview for Excel Online.
+       If Walmart's X-Frame-Options policy blocks it the fallback notice shows. #}
+    <div class="relative bg-wm-gray10" style="height:620px;">
+
+      {# Fallback notice — always rendered, sits behind the iframe.
+         If the iframe loads successfully it covers this completely.
+         If it's blocked, the user sees this instead. #}
+      <div class="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div class="text-4xl">📊</div>
+        <p class="text-wm-gray160 font-semibold text-base">
+          Live Tracking Sheet
+        </p>
+        <p class="text-wm-gray100 text-sm max-w-sm">
+          The embedded view requires Walmart VPN and SharePoint access.
+          If you see this message, click the button below to open the sheet directly.
+        </p>
+        <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
+           class="bg-wm-blue text-white px-6 py-3 rounded-lg text-sm font-bold
+                  hover:bg-wm-bluehov transition shadow-md">
+          Open Tracking Sheet in New Tab ↗
+        </a>
+        <p class="text-xs text-wm-gray100">
+          Make sure you are on Walmart VPN or Eagle WiFi
+        </p>
       </div>
 
-      {% if not cat_projects %}
-      <p class="text-xs text-wm-gray100 text-center py-4 italic">No {{ cat | lower }} tracked yet.</p>
-      {% else %}
-      <div class="divide-y divide-wm-gray10">
-        {% for proj in cat_projects %}
-        <div class="px-4 py-3
-          {% if proj.status in ('Overdue', 'Blocked') %}bg-red-50
-          {% elif proj.status == 'At Risk' %}bg-yellow-50
-          {% elif proj.status == 'Complete' %}bg-green-50
-          {% endif %}">
+      {# The iframe sits on top of the fallback via absolute + z-index.
+         If SharePoint allows framing, it renders and hides the fallback. #}
+      <iframe src="{{ embed_url }}"
+              class="absolute inset-0 w-full h-full border-0 bg-white"
+              style="z-index:1;"
+              title="5845 Live Tracking Sheet"
+              loading="lazy"
+              allowfullscreen>
+      </iframe>
+    </div>
+  </div>
 
-          <div class="flex flex-wrap items-start gap-3">
-            <!-- Name + status -->
-            <div class="flex-1 min-w-48">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-medium text-sm">{{ proj.name }}</span>
-                <span class="text-xs px-2 py-0.5 rounded-full font-medium
-                  {% if proj.status == 'Overdue' or proj.status == 'Blocked' %}bg-red-100 text-red-700
-                  {% elif proj.status == 'At Risk' %}bg-yellow-100 text-yellow-800
-                  {% elif proj.status == 'Complete' %}bg-green-100 text-green-700
-                  {% else %}bg-blue-100 text-blue-700{% endif %}">
-                  {{ proj.status }}
-                </span>
-                {% if not proj.owner %}
-                <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">NO OWNER</span>
-                {% else %}
-                <span class="text-xs text-wm-gray100">→ {{ proj.owner }}</span>
-                {% endif %}
-              </div>
-              {% if proj.due_date %}
-              <p class="text-xs text-wm-gray100 mt-0.5">Due: {{ proj.due_date }}</p>
-              {% endif %}
-              {% if proj.add_on_order %}
-              <p class="text-xs text-wm-warn font-medium mt-0.5">📦 Add-On: {{ proj.add_on_order }}</p>
-              {% endif %}
-              {% if proj.notes %}
-              <p class="text-xs text-wm-gray100 mt-0.5 italic">{{ proj.notes }}</p>
-              {% endif %}
-              <p class="text-xs text-wm-gray100 mt-1">Updated: {{ proj.last_updated }}</p>
+  {# ── 2. PER-CATEGORY STATUS SUMMARY ──────────────────────────────────── #}
+  <div>
+    <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-2 px-0.5">
+      Dashboard Tracking Summary
+    </p>
+
+    {# Alert bar: anything flagged #}
+    {% if flagged %}
+    <div class="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-3">
+      <p class="text-red-700 font-bold text-sm mb-2">
+        ⚠️ {{ flagged | length }} Item{{ 's' if flagged | length != 1 }} Need Attention
+      </p>
+      <ul class="space-y-1">
+        {% for p in flagged %}
+        <li class="text-sm flex flex-wrap items-center gap-2">
+          <span class="text-red-400">•</span>
+          <strong class="text-wm-gray160">[{{ p.category }}]</strong>
+          <span>{{ p.name }}</span>
+          <span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+            {{ p.status }}
+          </span>
+          {% if not p.owner %}
+          <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">
+            NO OWNER
+          </span>
+          {% else %}
+          <span class="text-xs text-wm-gray100">→ {{ p.owner }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {# Category tiles — one per tracking category #}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {% for cat in categories %}
+      {% set items      = grouped.get(cat, []) %}
+      {% set total      = items | length %}
+      {% set issues     = items | selectattr('status', 'in', ['Overdue', 'Blocked', 'At Risk']) | list | length %}
+      {% set complete   = items | selectattr('status', 'equalto', 'Complete') | list | length %}
+      {% set on_track   = total - issues - complete %}
+
+      <div class="bg-white rounded-xl border shadow-sm px-3 py-3
+                  {% if issues > 0 %}border-red-300
+                  {% elif total == 0 %}border-wm-gray50
+                  {% else %}border-green-200{% endif %}">
+        <p class="text-xs font-bold text-wm-gray160 leading-tight mb-2">{{ cat }}</p>
+        {% if total == 0 %}
+          <p class="text-xs text-wm-gray100 italic">Nothing logged</p>
+        {% else %}
+          <div class="space-y-0.5 text-xs">
+            {% if on_track > 0 %}
+            <div class="flex justify-between">
+              <span class="text-green-700">On Track</span>
+              <span class="font-semibold text-green-700">{{ on_track }}</span>
             </div>
+            {% endif %}
+            {% if issues > 0 %}
+            <div class="flex justify-between">
+              <span class="text-red-600">Issues</span>
+              <span class="font-semibold text-red-600">{{ issues }}</span>
+            </div>
+            {% endif %}
+            {% if complete > 0 %}
+            <div class="flex justify-between">
+              <span class="text-wm-gray100">Complete</span>
+              <span class="font-semibold text-wm-gray100">{{ complete }}</span>
+            </div>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
 
-            <!-- Inline edit form -->
-            <details class="text-xs">
-              <summary class="cursor-pointer text-wm-blue hover:underline">Edit</summary>
-              <form hx-post="/projects/{{ proj.id }}/update"
-                    hx-target="#projects-content"
-                    hx-swap="innerHTML"
-                    class="mt-2 space-y-1.5 min-w-64">
-                <div class="flex gap-2">
-                  <select name="status"
-                          class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs">
-                    {% for s in statuses %}
-                    <option {% if proj.status == s %}selected{% endif %}>{{ s }}</option>
-                    {% endfor %}
-                  </select>
-                  <input type="text" name="owner" value="{{ proj.owner }}" placeholder="Owner"
-                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+  {# ── 3. LOCAL PROJECT LOG (collapsible) ───────────────────────────────── #}
+  <details class="group">
+    <summary class="cursor-pointer list-none flex items-center gap-2
+                    text-sm font-semibold text-wm-gray100
+                    hover:text-wm-blue transition select-none">
+      <svg class="w-4 h-4 transform transition-transform group-open:rotate-90"
+           fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      Local Dashboard Log
+      <span class="font-normal text-xs text-wm-gray100">
+        — track items here for nudges and status badges
+      </span>
+    </summary>
+
+    <div class="mt-3 space-y-4">
+
+      {# Quick-add form #}
+      <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 p-4">
+        <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-3">
+          ➕ Log a Project / Ticket
+        </p>
+        <form hx-post="/projects/add"
+              hx-target="#projects-content"
+              hx-swap="innerHTML"
+              class="flex flex-wrap gap-2 items-end">
+          <select name="category"
+                  class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-wm-blue">
+            {% for cat in categories %}
+            <option>{{ cat }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="name" required placeholder="Project / ticket name"
+                 class="flex-1 min-w-48 border border-wm-gray50 rounded px-3 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+          <input type="text" name="owner" placeholder="Owner"
+                 class="w-32 border border-wm-gray50 rounded px-2 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+          <input type="date" name="due_date"
+                 class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-wm-blue"/>
+          <select name="status"
+                  class="border border-wm-gray50 rounded px-2 py-2 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-wm-blue">
+            {% for s in statuses %}
+            <option>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit"
+                  class="bg-wm-blue text-white px-4 py-2 rounded text-sm
+                         font-medium hover:bg-wm-bluehov transition">
+            Add
+          </button>
+        </form>
+      </div>
+
+      {# Logged items per category #}
+      <div id="projects-content" class="space-y-3">
+        {% for cat in categories %}
+        {% set cat_projects = grouped.get(cat, []) %}
+        {% if cat_projects %}
+        <div class="bg-white rounded-xl shadow-sm border border-wm-gray50 overflow-hidden">
+          <div class="bg-wm-gray10 px-4 py-2.5 border-b border-wm-gray50
+                      flex items-center justify-between">
+            <span class="font-bold text-sm text-wm-gray160">{{ cat }}</span>
+            {% set issue_cnt = cat_projects | selectattr('status', 'in', ['Overdue', 'Blocked']) | list | length %}
+            {% if issue_cnt > 0 %}
+            <span class="text-xs text-red-600 font-semibold">{{ issue_cnt }} issue(s)</span>
+            {% else %}
+            <span class="text-xs text-wm-gray100">{{ cat_projects | length }} item{{ 's' if cat_projects | length != 1 }}</span>
+            {% endif %}
+          </div>
+          <div class="divide-y divide-wm-gray10">
+            {% for proj in cat_projects %}
+            <div class="px-4 py-3
+                        {% if proj.status in ('Overdue', 'Blocked') %}bg-red-50
+                        {% elif proj.status == 'At Risk' %}bg-yellow-50
+                        {% elif proj.status == 'Complete' %}bg-green-50
+                        {% endif %}">
+              <div class="flex flex-wrap items-start gap-3">
+                <div class="flex-1 min-w-40">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-medium text-sm">{{ proj.name }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                          {% if proj.status in ('Overdue','Blocked') %}bg-red-100 text-red-700
+                          {% elif proj.status == 'At Risk'           %}bg-yellow-100 text-yellow-800
+                          {% elif proj.status == 'Complete'          %}bg-green-100 text-green-700
+                          {% else                                    %}bg-blue-100 text-blue-700{% endif %}">
+                      {{ proj.status }}
+                    </span>
+                    {% if not proj.owner %}
+                    <span class="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">
+                      NO OWNER
+                    </span>
+                    {% else %}
+                    <span class="text-xs text-wm-gray100">→ {{ proj.owner }}</span>
+                    {% endif %}
+                  </div>
+                  {% if proj.due_date %}
+                  <p class="text-xs text-wm-gray100 mt-0.5">Due: {{ proj.due_date }}</p>
+                  {% endif %}
+                  {% if proj.notes %}
+                  <p class="text-xs text-wm-gray100 mt-0.5 italic">{{ proj.notes }}</p>
+                  {% endif %}
+                  <p class="text-xs text-wm-gray100 mt-1">Updated: {{ proj.last_updated }}</p>
                 </div>
-                <div class="flex gap-2">
-                  <input type="date" name="due_date" value="{{ proj.due_date }}"
-                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
-                  <input type="text" name="add_on_order" value="{{ proj.add_on_order }}"
-                         placeholder="Add-on order #"
-                         class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
-                </div>
-                <input type="text" name="notes" value="{{ proj.notes }}" placeholder="Notes"
-                       class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs"/>
-                <div class="flex gap-2">
-                  <button type="submit"
-                          class="bg-wm-blue text-white px-3 py-1 rounded text-xs hover:bg-wm-bluehov transition">
-                    Save
-                  </button>
-                  <button type="button"
-                          hx-post="/projects/{{ proj.id }}/delete"
-                          hx-target="#projects-content"
-                          hx-swap="innerHTML"
-                          hx-confirm="Delete this project?"
-                          class="bg-red-100 text-red-700 px-3 py-1 rounded text-xs hover:bg-red-200 transition">
-                    Delete
-                  </button>
-                </div>
-              </form>
-            </details>
+
+                <details class="text-xs">
+                  <summary class="cursor-pointer text-wm-blue hover:underline">Edit</summary>
+                  <form hx-post="/projects/{{ proj.id }}/update"
+                        hx-target="#projects-content"
+                        hx-swap="innerHTML"
+                        class="mt-2 space-y-1.5 min-w-56">
+                    <div class="flex gap-2">
+                      <select name="status"
+                              class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs">
+                        {% for s in statuses %}
+                        <option {% if proj.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                      </select>
+                      <input type="text" name="owner" value="{{ proj.owner }}" placeholder="Owner"
+                             class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                    </div>
+                    <div class="flex gap-2">
+                      <input type="date" name="due_date" value="{{ proj.due_date }}"
+                             class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                      <input type="text" name="add_on_order" value="{{ proj.add_on_order }}"
+                             placeholder="Add-on order #"
+                             class="flex-1 border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                    </div>
+                    <input type="text" name="notes" value="{{ proj.notes }}"
+                           placeholder="Notes"
+                           class="w-full border border-wm-gray50 rounded px-2 py-1 text-xs"/>
+                    <div class="flex gap-2">
+                      <button type="submit"
+                              class="bg-wm-blue text-white px-3 py-1 rounded text-xs
+                                     hover:bg-wm-bluehov transition">
+                        Save
+                      </button>
+                      <button type="button"
+                              hx-post="/projects/{{ proj.id }}/delete"
+                              hx-target="#projects-content"
+                              hx-swap="innerHTML"
+                              hx-confirm="Delete this item from the dashboard log?"
+                              class="bg-red-100 text-red-700 px-3 py-1 rounded text-xs
+                                     hover:bg-red-200 transition">
+                        Remove
+                      </button>
+                    </div>
+                  </form>
+                </details>
+              </div>
+            </div>
+            {% endfor %}
           </div>
         </div>
+        {% endif %}
         {% endfor %}
+
+        {% if not grouped.values() | selectattr('__len__') | list %}
+        <p class="text-sm text-wm-gray100 text-center py-4 italic">
+          Nothing logged yet — use the Live Tracking Sheet above as your primary source.
+        </p>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
-    {% endfor %}
-  </div>
+  </details>
 
 </div>
