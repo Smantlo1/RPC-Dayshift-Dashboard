@@ -21,7 +21,7 @@ from routine_data import (
     PROJECT_CATEGORIES,
     TRACKING_SHEET_VIEW_URL,
 )
-from routers import blocks, tasks, projects, picklist, future_walk, closeout
+from routers import blocks, tasks, projects, picklist, future_walk, closeout, publish
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(projects.router)
 app.include_router(picklist.router)
 app.include_router(future_walk.router)
 app.include_router(closeout.router)
+app.include_router(publish.router)
 
 
 # ── Nudge engine ─────────────────────────────────────────────────────────────

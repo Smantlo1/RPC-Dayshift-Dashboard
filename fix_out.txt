@@ -1,0 +1,4 @@
+  File "C:\Users\s0m0660\Documents\puppy_workspace\rpc_dashboard\fix_exporter.py", line 15
+    alerts_html += f'<ul style=\"margin:0;padding-left:18px;font-size:13px;\">{items}</ul>'"""
+                                                                                              ^
+SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position 105-122: unknown Unicode character name

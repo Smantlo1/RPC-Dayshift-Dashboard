@@ -32,6 +32,29 @@
                 hover:bg-wm-gray10 transition">
         📅 Week View
       </a>
+
+      <!-- Publish to Share Puppy -->
+      <div class="flex items-center gap-2">
+        <button hx-post="/publish/now"
+                hx-target="#pub-area"
+                hx-swap="outerHTML"
+                hx-indicator="#pub-spinner"
+                class="text-xs bg-wm-spark text-wm-gray160 font-semibold
+                       px-3 py-1.5 rounded border border-amber-400
+                       hover:bg-amber-300 transition flex items-center gap-1">
+          <span id="pub-spinner"
+                class="htmx-indicator animate-spin inline-block">⏳</span>
+          📤 Publish
+        </button>
+        <!-- Status badge — loads on page start, updated after each publish -->
+        <div id="pub-area"
+             hx-get="/publish/status"
+             hx-trigger="load"
+             hx-swap="outerHTML"
+             class="text-xs text-wm-gray100">
+          …
+        </div>
+      </div>
     </div>
   </div>
 

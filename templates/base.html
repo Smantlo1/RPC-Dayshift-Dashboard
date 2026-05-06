@@ -67,8 +67,37 @@
         <span class="text-wm-spark font-black text-xl tracking-tight">⚡ RPC OPS</span>
         <span class="hidden sm:block text-blue-200 text-sm">Daily Operating Dashboard</span>
       </div>
-      <div class="flex items-center gap-4 text-sm">
+      <div class="flex items-center gap-3 text-sm flex-wrap">
         <a href="/weekly" class="text-blue-200 hover:text-white transition">📅 Weekly</a>
+
+        <!-- Persistent publish status + controls (single anchor, loaded once) -->
+        <div id="pub-area"
+             hx-get="/publish/status"
+             hx-trigger="load"
+             hx-target="#pub-area"
+             hx-swap="outerHTML"
+             class="flex items-center gap-2">
+          <span class="text-xs text-blue-200">checking…</span>
+        </div>
+
+        <!-- Publish button (always visible, replaces #pub-area with fresh status) -->
+        <button hx-post="/publish/now"
+                hx-target="#pub-area"
+                hx-swap="outerHTML"
+                hx-indicator="#pub-spinner"
+                class="flex items-center gap-1.5 bg-wm-spark text-gray-900 font-semibold
+                       text-xs px-3 py-1.5 rounded-lg hover:bg-yellow-300 transition"
+                title="Publish current dashboard state to the persistent share link">
+          <span id="pub-spinner" class="htmx-indicator">⏳</span>
+          📤 Publish
+        </button>
+
+        <a href="/publish/export"
+           class="text-xs text-blue-200 hover:text-white transition"
+           title="Download HTML snapshot">
+          ⬇ Export
+        </a>
+
         <span id="live-clock" class="text-blue-100 font-mono text-xs"></span>
       </div>
     </div>
