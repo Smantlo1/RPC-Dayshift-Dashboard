@@ -71,9 +71,18 @@ def _fmt(val) -> str:
     return str(val).strip()
 
 
-# ── Core fetch + parse (blocking — runs in a thread pool) ────────────────────
+# ── Core fetch + parse (blocking — runs in a thread pool) ────────────────────────
 def _fetch_bytes() -> tuple[Optional[bytes], Optional[str]]:
-    """Return (xlsx_bytes, error_string). One of them will be None."""
+    """Return (xlsx_bytes, error_string). One of them will be None.
+
+    Auth strategy:
+      Walmart’s SharePoint returns 403 (not 401) when no auth headers
+      are present, so the standard “retry on 401” pattern never fires.
+      Instead we lead with Windows Negotiate/SSPI on the first attempt
+      whenever the package is available (domain-joined machines always
+      have a valid Kerberos/NTLM token).  Plain fallback covers edge
+      cases where the library is missing.
+    """
     try:
         import requests
     except ImportError:
@@ -88,6 +97,15 @@ def _fetch_bytes() -> tuple[Optional[bytes], Optional[str]]:
         ),
     })
 
+    # ── Resolve auth: prefer SSPI (domain creds, no prompt) ─────────────
+    sspi_auth = None
+    try:
+        from requests_negotiate_sspi import HttpNegotiateAuth
+        sspi_auth = HttpNegotiateAuth()
+        log.debug("SSPI available — leading with Windows Negotiate auth")
+    except ImportError:
+        log.debug("requests_negotiate_sspi not found — trying unauthenticated")
+
     def _get(auth=None):
         return session.get(
             TRACKING_SHEET_RAW_URL,
@@ -97,9 +115,9 @@ def _fetch_bytes() -> tuple[Optional[bytes], Optional[str]]:
             stream=False,
         )
 
-    # ── Attempt 1: plain (VPN / intranet may not need auth) ──────────────────
+    # ── Attempt 1: SSPI auth (if available) or plain ────────────────────
     try:
-        resp = _get()
+        resp = _get(auth=sspi_auth)
     except requests.exceptions.ConnectionError:
         return None, (
             "Cannot reach SharePoint — make sure you are on "
@@ -110,11 +128,13 @@ def _fetch_bytes() -> tuple[Optional[bytes], Optional[str]]:
     except Exception as exc:
         return None, f"Unexpected network error: {exc}"
 
-    # ── Attempt 2: Windows NTLM/Negotiate if we got a 401 ───────────────────
-    if resp.status_code == 401:
+    # ── Attempt 2: if we led with plain and got 401 OR 403, retry with SSPI ─
+    # (Walmart SharePoint skips the 401 challenge and returns 403 directly
+    #  when no Negotiate header is present.)
+    if resp.status_code in (401, 403) and sspi_auth is None:
         try:
             from requests_negotiate_sspi import HttpNegotiateAuth
-            log.debug("Got 401 — retrying with Windows Negotiate auth")
+            log.debug("Got %d — retrying with Windows Negotiate auth", resp.status_code)
             resp = _get(auth=HttpNegotiateAuth())
         except ImportError:
             pass  # sspi not available; fall through to error below
