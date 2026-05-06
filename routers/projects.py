@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from database import get_db
 from routine_data import PROJECT_CATEGORIES, PROJECT_STATUSES, TRACKING_SHEET_VIEW_URL
-from sheet_fetcher import get_sheet_data, status_class
+from sheet_fetcher import get_sheet_data, status_class, save_sp_cookie, clear_sp_cookie
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 templates = Jinja2Templates(directory="templates")
@@ -143,8 +143,40 @@ async def sheet_viewer(
             "sheets":       sheets,
             "active_sheet": active,
             "error":        data["error"],
+            "auth_failure": data.get("auth_failure", False),
+            "has_cookie":   data.get("has_cookie", False),
             "refreshed_at": fetched_dt,
             "view_url":     TRACKING_SHEET_VIEW_URL,
             "status_class": status_class,
         },
     )
+
+
+@router.post("/sheet-cookie", response_class=HTMLResponse)
+async def save_cookie_endpoint(
+    request: Request,
+    fedauth: str = Form(default=""),
+    rtfa: str    = Form(default=""),
+    sp_cookie: str = Form(default=""),  # fallback: raw full cookie string
+    sheet: int = Form(default=0),
+):
+    """Accept FedAuth + rtFa values separately or as a raw cookie string."""
+    if fedauth.strip():
+        parts = [f"FedAuth={fedauth.strip()}"]
+        if rtfa.strip():
+            parts.append(f"rtFa={rtfa.strip()}")
+        cookie = "; ".join(parts)
+    elif sp_cookie.strip():
+        cookie = sp_cookie.strip()
+    else:
+        return await sheet_viewer(request, sheet=sheet, force=0)
+
+    save_sp_cookie(cookie)
+    return await sheet_viewer(request, sheet=sheet, force=1)
+
+
+@router.post("/sheet-cookie/clear", response_class=HTMLResponse)
+async def clear_cookie_endpoint(request: Request):
+    """Remove the stored cookie and return a fresh (likely errored) sheet view."""
+    clear_sp_cookie()
+    return await sheet_viewer(request, sheet=0, force=1)

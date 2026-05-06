@@ -1,62 +1,190 @@
-{# partials/sheet_view.html
-   Loaded via HTMX into #sheet-viewer.
-   Shows:  error state | live Excel table (with sheet tabs + refresh) #}
+{# partials/sheet_view.html — HTMX-loaded into #sheet-viewer
+   Two states: error (with inline cookie setup) | success (table view) #}
 
 {% if error %}
-{# ── ERROR STATE ────────────────────────────────────────────────────────── #}
-<div class="flex flex-col items-center justify-center gap-5 py-14 px-6 text-center
-            bg-white rounded-xl border border-red-200 shadow-sm">
-  <div class="text-5xl">⚠️</div>
-  <div>
-    <p class="font-bold text-wm-gray160 text-base mb-1">Could not load tracking sheet</p>
-    <p class="text-sm text-wm-gray100 max-w-md whitespace-pre-wrap">{{ error }}</p>
+{# ══ ERROR STATE ══════════════════════════════════════════════════════════ #}
+<div class="space-y-4">
+
+  {# Error card #}
+  <div class="flex flex-col items-center gap-3 py-8 px-6 text-center
+              bg-white rounded-xl border border-red-200">
+    <div class="text-4xl">{% if auth_failure %}🔐{% else %}⚠️{% endif %}</div>
+    <p class="font-bold text-wm-gray160">
+      {% if auth_failure %}Authentication Required{% else %}Cannot Load Sheet{% endif %}
+    </p>
+    <p class="text-sm text-wm-gray100 max-w-md">{{ error }}</p>
+    <div class="flex flex-wrap gap-2 justify-center">
+      <button hx-get="/projects/sheet?force=1"
+              hx-target="#sheet-viewer"
+              hx-swap="innerHTML"
+              hx-indicator="#sheet-spinner"
+              class="text-sm bg-white border border-wm-gray50 px-4 py-2
+                     rounded-lg hover:bg-wm-gray10 transition">
+        ↺ Try Again
+      </button>
+      <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
+         class="text-sm border border-wm-gray50 bg-white px-4 py-2
+                rounded-lg hover:bg-wm-gray10 transition">
+        Open in SharePoint ↗
+      </a>
+      {% if has_cookie %}
+      <button hx-post="/projects/sheet-cookie/clear"
+              hx-target="#sheet-viewer"
+              hx-swap="innerHTML"
+              hx-indicator="#sheet-spinner"
+              class="text-sm bg-red-50 border border-red-200 text-red-700
+                     px-4 py-2 rounded-lg hover:bg-red-100 transition">
+        🗑 Clear Saved Cookie
+      </button>
+      {% endif %}
+    </div>
   </div>
-  <div class="flex flex-wrap gap-3 justify-center">
-    <button hx-get="/projects/sheet?force=1"
-            hx-target="#sheet-viewer"
-            hx-swap="innerHTML"
-            hx-indicator="#sheet-spinner"
-            class="bg-wm-blue text-white px-5 py-2.5 rounded-lg text-sm
-                   font-semibold hover:bg-wm-bluehov transition">
-      ↺ Try Again
-    </button>
-    <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
-       class="border border-wm-gray50 bg-white text-wm-gray160 px-5 py-2.5
-              rounded-lg text-sm font-semibold hover:bg-wm-gray10 transition">
-      Open in SharePoint ↗
-    </a>
+
+  {# Cookie setup — shown prominently when auth failed, collapsed otherwise #}
+  {% if auth_failure %}
+  <div class="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+    <div class="bg-blue-100 border-b border-blue-200 px-4 py-3">
+      <p class="font-bold text-blue-800 text-sm">
+        🔑 Connect with Your SharePoint Session Cookie
+      </p>
+      <p class="text-xs text-blue-700 mt-0.5">
+        One-time setup · stored locally · no password required
+      </p>
+    </div>
+
+    {# Step-by-step instructions #}
+    <div class="px-4 pt-4 pb-2">
+      <p class="text-xs font-bold text-wm-gray160 uppercase tracking-wide mb-2">
+        How to get your cookie (takes ~60 seconds)
+      </p>
+      <ol class="text-sm text-wm-gray160 space-y-2 list-none">
+        <li class="flex gap-2">
+          <span class="bg-wm-blue text-white rounded-full w-5 h-5 flex-shrink-0
+                       flex items-center justify-center text-xs font-bold">1</span>
+          <span>
+            Open
+            <a href="{{ view_url }}" target="_blank"
+               class="text-wm-blue underline hover:no-underline">
+              the tracking sheet in SharePoint ↗
+            </a>
+            and make sure you are signed in.
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <span class="bg-wm-blue text-white rounded-full w-5 h-5 flex-shrink-0
+                       flex items-center justify-center text-xs font-bold">2</span>
+          <span>
+            Press <kbd class="bg-gray-100 border border-gray-300 rounded px-1 py-0.5
+                              text-xs font-mono">F12</kbd>
+            to open DevTools, then click the
+            <strong>Application</strong> tab (Chrome) or
+            <strong>Storage</strong> tab (Edge/Firefox).
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <span class="bg-wm-blue text-white rounded-full w-5 h-5 flex-shrink-0
+                       flex items-center justify-center text-xs font-bold">3</span>
+          <span>
+            Expand <strong>Cookies</strong> → click
+            <code class="bg-gray-100 px-1 rounded text-xs">teams.wal-mart.com</code>.
+            Find the cookie named
+            <code class="bg-yellow-100 px-1 rounded text-xs font-bold">FedAuth</code>
+            and copy its entire value (it's very long — that's expected).
+          </span>
+        </li>
+        <li class="flex gap-2">
+          <span class="bg-wm-blue text-white rounded-full w-5 h-5 flex-shrink-0
+                       flex items-center justify-center text-xs font-bold">4</span>
+          <span>
+            Also find
+            <code class="bg-yellow-100 px-1 rounded text-xs font-bold">rtFa</code>
+            and copy that value too. Paste both below.
+          </span>
+        </li>
+      </ol>
+    </div>
+
+    {# Cookie form #}
+    <form hx-post="/projects/sheet-cookie"
+          hx-target="#sheet-viewer"
+          hx-swap="innerHTML"
+          hx-indicator="#sheet-spinner"
+          class="px-4 pb-4 pt-3 space-y-3">
+
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-wm-gray160 flex items-center gap-1">
+          FedAuth cookie value
+          <span class="text-red-500">*</span>
+        </label>
+        <textarea name="fedauth" required rows="2"
+                  placeholder="Paste the FedAuth cookie value here…"
+                  class="w-full border border-wm-gray50 rounded-lg px-3 py-2
+                         text-xs font-mono focus:outline-none focus:ring-2
+                         focus:ring-wm-blue resize-none"></textarea>
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-wm-gray160">
+          rtFa cookie value
+          <span class="text-wm-gray100 font-normal">(recommended)</span>
+        </label>
+        <textarea name="rtfa" rows="2"
+                  placeholder="Paste the rtFa cookie value here…"
+                  class="w-full border border-wm-gray50 rounded-lg px-3 py-2
+                         text-xs font-mono focus:outline-none focus:ring-2
+                         focus:ring-wm-blue resize-none"></textarea>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="submit"
+                class="bg-wm-blue text-white px-5 py-2.5 rounded-lg text-sm
+                       font-semibold hover:bg-wm-bluehov transition">
+          Save &amp; Connect
+        </button>
+        <p class="text-xs text-wm-gray100">
+          Cookies are stored locally on this server only.
+          They expire with your SharePoint session (usually 24–72 hrs).
+        </p>
+      </div>
+    </form>
   </div>
+
+  {% else %}
+  {# Non-auth error: just a simple VPN hint #}
+  <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm
+              text-amber-800">
+    💡 Make sure you are on <strong>Walmart VPN or Eagle WiFi</strong> before retrying.
+  </div>
+  {% endif %}
+
 </div>
 
 {% else %}
-{# ── SUCCESS STATE ──────────────────────────────────────────────────────── #}
+{# ══ SUCCESS STATE ════════════════════════════════════════════════════════ #}
 {% set active_data = sheets[active_sheet] if sheets else none %}
 
-{# Sheet tab selector + toolbar #}
-<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+{# Sheet tabs + toolbar #}
+<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
 
-  {# Sheet tabs #}
   <div class="flex flex-wrap gap-1">
     {% for s in sheets %}
-    <button
-      hx-get="/projects/sheet?sheet={{ loop.index0 }}"
-      hx-target="#sheet-viewer"
-      hx-swap="innerHTML"
-      hx-indicator="#sheet-spinner"
-      class="px-3 py-1.5 text-xs font-medium rounded border transition
-             {% if loop.index0 == active_sheet %}
-               bg-wm-blue text-white border-wm-blue
-             {% else %}
-               bg-white text-wm-gray100 border-wm-gray50
-               hover:text-wm-blue hover:border-wm-blue hover:bg-wm-gray10
-             {% endif %}">
+    <button hx-get="/projects/sheet?sheet={{ loop.index0 }}"
+            hx-target="#sheet-viewer"
+            hx-swap="innerHTML"
+            hx-indicator="#sheet-spinner"
+            class="px-3 py-1.5 text-xs font-medium rounded border transition
+                   {% if loop.index0 == active_sheet %}
+                     bg-wm-blue text-white border-wm-blue
+                   {% else %}
+                     bg-white text-wm-gray100 border-wm-gray50
+                     hover:text-wm-blue hover:border-wm-blue
+                   {% endif %}">
       {{ s.name }}
-      <span class="ml-1 opacity-75">({{ s.row_count }})</span>
+      <span class="ml-1 opacity-60">({{ s.row_count }})</span>
     </button>
     {% endfor %}
   </div>
 
-  {# Toolbar: last-refreshed + refresh + open #}
   <div class="flex items-center gap-2 flex-shrink-0">
     <span class="text-xs text-wm-gray100">Updated {{ refreshed_at }}</span>
     <button hx-get="/projects/sheet?sheet={{ active_sheet }}&force=1"
@@ -67,9 +195,18 @@
                    rounded hover:bg-wm-gray10 transition">
       ↺ Refresh
     </button>
+    <button hx-post="/projects/sheet-cookie/clear"
+            hx-target="#sheet-viewer"
+            hx-swap="innerHTML"
+            hx-indicator="#sheet-spinner"
+            hx-confirm="Clear saved cookie? You will need to re-enter it to reconnect."
+            class="text-xs bg-white border border-wm-gray50 px-2.5 py-1.5
+                   rounded hover:bg-wm-gray10 transition text-wm-gray100">
+      🔑 Update Cookie
+    </button>
     <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
-       class="text-xs border border-wm-gray50 bg-white text-wm-gray160
-              px-2.5 py-1.5 rounded hover:bg-wm-gray10 transition">
+       class="text-xs border border-wm-gray50 bg-white px-2.5 py-1.5
+              rounded hover:bg-wm-gray10 transition">
       Open in SharePoint ↗
     </a>
   </div>
@@ -77,50 +214,42 @@
 
 {% if active_data %}
 
-{# Truncation warning #}
 {% if active_data.truncated %}
 <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200
             rounded px-3 py-1.5 mb-2">
-  ⚠️ Showing first 500 rows — open in SharePoint to see the full sheet.
+  Showing first 500 rows — open in SharePoint to see the full sheet.
 </div>
 {% endif %}
 
-{# Spreadsheet table — sticky header, horizontal + vertical scroll #}
+{# Spreadsheet table #}
 <div class="rounded-xl border border-wm-gray50 overflow-hidden shadow-sm">
   <div class="overflow-auto" style="max-height:580px;">
     <table class="text-xs border-collapse w-full" style="min-width:max-content;">
-
-      {# Sticky header #}
       <thead>
         <tr class="bg-wm-gray160 text-white">
           <th class="sticky top-0 left-0 z-20 bg-wm-gray160
                      px-3 py-2 text-left font-semibold border-r border-gray-600
-                     whitespace-nowrap select-none"
+                     whitespace-nowrap"
               style="min-width:2.5rem;">#</th>
           {% for h in active_data.headers %}
           <th class="sticky top-0 z-10 bg-wm-gray160
                      px-3 py-2 text-left font-semibold border-r border-gray-600
-                     whitespace-nowrap select-none">
+                     whitespace-nowrap">
             {{ h }}
           </th>
           {% endfor %}
         </tr>
       </thead>
-
-      {# Data rows #}
       <tbody>
         {% for row in active_data.rows %}
         <tr class="{% if loop.index is odd %}bg-white{% else %}bg-wm-gray10{% endif %}
                    hover:bg-blue-50 transition-colors">
-
-          {# Row number — sticky left column #}
-          <td class="sticky left-0 z-10 px-3 py-1.5 text-center
-                     text-wm-gray100 border-r border-wm-gray50 select-none
+          <td class="sticky left-0 z-10 px-3 py-1.5 text-center text-wm-gray100
+                     border-r border-wm-gray50 select-none
                      {% if loop.index is odd %}bg-white{% else %}bg-wm-gray10{% endif %}
                      hover:bg-blue-50">
             {{ loop.index }}
           </td>
-
           {% for cell in row %}
           {% set sc = status_class(cell) %}
           <td class="px-3 py-1.5 border-r border-wm-gray50 whitespace-nowrap
@@ -133,7 +262,6 @@
           {% endfor %}
         </tr>
         {% endfor %}
-
         {% if not active_data.rows %}
         <tr>
           <td colspan="{{ active_data.headers | length + 1 }}"
@@ -146,11 +274,6 @@
     </table>
   </div>
 </div>
-
-{% else %}
-<p class="text-sm text-wm-gray100 italic text-center py-8">
-  No data available for this sheet.
-</p>
 {% endif %}
 
-{% endif %}{# end error/success #}
+{% endif %}
