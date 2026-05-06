@@ -1,104 +1,124 @@
-{# partials/timeline.html — Full day timeline with expandable block cards #}
+{# partials/timeline.html — Full day timeline with expandable block cards.
+   Checklist state is managed optimistically client-side (hx-swap="none").
+   Status updates re-render only their own card; JS preserves open state. #}
 
 <div class="space-y-3 pb-8" id="timeline-container">
   {% for block in blocks %}
   {% set bstatus = status_map.get(block.id, {}) %}
-  {% set st = bstatus.get('status', 'pending') %}
+  {% set st      = bstatus.get('status', 'pending') %}
   {% set checked = checked_map.get(block.id, []) %}
   {% set total_items = block.checklist | length %}
   {% set done_items  = checked | length %}
 
-  <div class="block-card bg-white rounded-xl border-l-4
-    {% if block.is_lunch %}border-wm-gray50
-    {% elif st == 'done' %}border-wm-green
-    {% elif st == 'in-progress' %}border-wm-blue
-    {% elif st == 'skipped' %}border-wm-gray50
-    {% else %}border-wm-gray50{% endif %}
-    shadow-sm" id="block-{{ block.id }}">
+  {# Outer card — data attrs let JS locate and auto-expand blocks #}
+  <div class="block-card bg-white rounded-xl border-l-4 shadow-sm
+        {% if block.is_lunch %}border-wm-gray50
+        {% elif st == 'done'        %}border-wm-green
+        {% elif st == 'in-progress' %}border-wm-blue
+        {% elif st == 'skipped'     %}border-wm-gray50
+        {% else                     %}border-wm-gray50{% endif %}"
+       id="block-{{ block.id }}"
+       data-block-id="{{ block.id }}"
+       data-start="{{ block.start_hour }}"
+       data-end="{{ block.end_hour }}">
 
-    <!-- Block header (always visible) -->
+    {# ── HEADER — the ONLY thing that toggles open/close ─────────────────── #}
     <button type="button"
-            onclick="toggleBlock('{{ block.id }}')"
-            class="w-full flex items-center justify-between px-4 py-3 text-left gap-3">
+            class="w-full flex items-center justify-between px-4 py-3 text-left gap-3
+                   select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-wm-blue"
+            onclick="toggleBlock('{{ block.id }}')">
 
       <div class="flex items-center gap-3 flex-1 min-w-0">
-        <!-- Status dot -->
+        {# Status pulse dot #}
         <span class="flex-shrink-0 w-3 h-3 rounded-full
-          {% if st == 'done' %}bg-wm-green
-          {% elif st == 'in-progress' %}bg-wm-blue animate-pulse
-          {% elif st == 'skipped' %}bg-wm-gray50
-          {% elif block.is_lunch %}bg-wm-spark
-          {% else %}bg-wm-gray50 border-2 border-wm-gray100{% endif %}">
+              {% if st == 'done'        %}bg-wm-green
+              {% elif st == 'in-progress'%}bg-wm-blue animate-pulse
+              {% elif st == 'skipped'   %}bg-wm-gray50
+              {% elif block.is_lunch   %}bg-wm-spark
+              {% else                  %}bg-wm-gray50 border-2 border-wm-gray100{% endif %}">
         </span>
 
-        <!-- Time + label -->
         <div class="min-w-0">
           <span class="text-xs font-mono text-wm-gray100 block">{{ block.time_range }}</span>
           <span class="font-semibold text-sm leading-tight
-            {% if st == 'done' %}text-wm-green
-            {% elif st == 'in-progress' %}text-wm-blue
-            {% elif block.is_lunch %}text-wm-gray100
-            {% else %}text-wm-gray160{% endif %}">
+                {% if st == 'done'        %}text-wm-green
+                {% elif st == 'in-progress'%}text-wm-blue
+                {% elif block.is_lunch   %}text-wm-gray100
+                {% else                  %}text-wm-gray160{% endif %}">
             {{ block.label }}
           </span>
         </div>
       </div>
 
       <div class="flex items-center gap-2 flex-shrink-0">
-        <!-- Checklist progress -->
+        {# Checklist badge — updated in-place by JS, never re-rendered #}
         {% if total_items > 0 %}
-        <span class="text-xs px-2 py-0.5 rounded-full font-medium
-          {% if done_items == total_items %}bg-green-100 text-green-700
-          {% elif done_items > 0 %}bg-blue-100 text-blue-700
-          {% else %}bg-gray-100 text-gray-600{% endif %}">
+        <span id="badge-{{ block.id }}"
+              class="text-xs px-2 py-0.5 rounded-full font-medium
+              {% if done_items == total_items %}bg-green-100 text-green-700
+              {% elif done_items > 0         %}bg-blue-100  text-blue-700
+              {% else                        %}bg-gray-100  text-gray-600{% endif %}">
           {{ done_items }}/{{ total_items }}
         </span>
         {% endif %}
 
-        <!-- Status badge -->
+        {# Status badge #}
         <span class="text-xs px-2 py-0.5 rounded font-medium capitalize
-          {% if st == 'done' %}bg-green-100 text-green-700
-          {% elif st == 'in-progress' %}bg-blue-100 text-blue-700
-          {% elif st == 'skipped' %}bg-gray-100 text-gray-500
-          {% else %}bg-gray-100 text-gray-500{% endif %}">
+              {% if st == 'done'        %}bg-green-100 text-green-700
+              {% elif st == 'in-progress'%}bg-blue-100  text-blue-700
+              {% elif st == 'skipped'   %}bg-gray-100  text-gray-500
+              {% else                   %}bg-gray-100  text-gray-500{% endif %}">
           {{ st }}
         </span>
 
-        <svg class="w-4 h-4 text-wm-gray100 transform transition-transform" id="chevron-{{ block.id }}"
-             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg id="chevron-{{ block.id }}"
+             class="w-4 h-4 text-wm-gray100 transform transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
     </button>
+    {# ── END HEADER ───────────────────────────────────────────────────────── #}
 
-    <!-- Expanded block body -->
-    <div id="body-{{ block.id }}" class="hidden border-t border-wm-gray10">
-      <div class="px-4 py-3 space-y-4">
+    {# ── BODY — sibling of the button, so clicks here CANNOT reach the toggle #}
+    <div id="body-{{ block.id }}"
+         class="hidden border-t border-wm-gray10">
+      <div class="px-4 py-3 space-y-4"
+           onclick="event.stopPropagation()">
 
-        <!-- Description -->
+        {# Description #}
         <p class="text-sm text-wm-gray100 leading-relaxed">{{ block.description }}</p>
 
         {% if not block.is_lunch %}
-        <!-- Checklist -->
+
+        {# ── Checklist ───────────────────────────────────────────────────── #}
         {% if block.checklist %}
         <div>
           <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-2">Checklist</p>
-          <div class="space-y-1.5">
+          <div id="checklist-{{ block.id }}" class="space-y-1.5">
             {% for item in block.checklist %}
+            {#
+              hx-swap="none"  → HTMX posts the form but doesn't touch the DOM.
+              JS handles visual state immediately; server just persists.
+            #}
             <form hx-post="/blocks/checklist"
-                  hx-target="#block-{{ block.id }}"
-                  hx-swap="outerHTML"
-                  class="flex items-center gap-2 group">
+                  hx-swap="none"
+                  class="flex items-center gap-2"
+                  onclick="event.stopPropagation()">
               <input type="hidden" name="date"     value="{{ target_date }}"/>
               <input type="hidden" name="block_id" value="{{ block.id }}"/>
               <input type="hidden" name="item_id"  value="{{ item.id }}"/>
-              <input type="checkbox" name="checked"
+              <input type="checkbox"
+                     name="checked"
                      value="on"
+                     data-item-id="{{ item.id }}"
                      {% if item.id in checked %}checked{% endif %}
-                     onchange="this.form.submit()"
-                     class="w-4 h-4 rounded accent-wm-blue cursor-pointer"/>
-              <label class="text-sm cursor-pointer select-none
-                {% if item.id in checked %}line-through text-wm-gray100{% else %}text-wm-gray160{% endif %}">
+                     class="w-4 h-4 rounded accent-wm-blue cursor-pointer flex-shrink-0"
+                     onchange="handleChecklistChange(this, event)"
+                     onclick="event.stopPropagation()"/>
+              <label class="text-sm cursor-pointer select-none leading-snug
+                     {% if item.id in checked %}line-through text-wm-gray100{% else %}text-wm-gray160{% endif %}"
+                     onclick="event.stopPropagation()">
                 {{ item.text }}
               </label>
             </form>
@@ -107,37 +127,50 @@
         </div>
         {% endif %}
 
-        <!-- Definition of done -->
+        {# ── Definition of Done ──────────────────────────────────────────── #}
         <div class="bg-wm-gray10 rounded-lg px-3 py-2">
-          <p class="text-xs font-bold text-wm-blue uppercase tracking-wide mb-1">✓ Output / Definition of Done</p>
+          <p class="text-xs font-bold text-wm-blue uppercase tracking-wide mb-1">
+            ✓ Output / Definition of Done
+          </p>
           <p class="text-sm text-wm-gray160">{{ block.output }}</p>
         </div>
 
-        <!-- Status update form -->
+        {# ── Status update ── targets only this card, JS re-opens after swap #}
         <form hx-post="/blocks/status"
-              hx-target="#timeline-container"
-              hx-swap="innerHTML"
-              class="flex flex-wrap items-center gap-2">
+              hx-target="#block-{{ block.id }}"
+              hx-swap="outerHTML"
+              hx-on--before-request="window._openBlocks && window._openBlocks.has('{{ block.id }}') && true"
+              class="flex flex-wrap items-center gap-2"
+              onclick="event.stopPropagation()">
           <input type="hidden" name="date"     value="{{ target_date }}"/>
           <input type="hidden" name="block_id" value="{{ block.id }}"/>
           <select name="status"
-                  class="text-sm border border-wm-gray50 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-wm-blue">
+                  class="text-sm border border-wm-gray50 rounded px-2 py-1
+                         focus:outline-none focus:ring-2 focus:ring-wm-blue"
+                  onclick="event.stopPropagation()">
             {% for s in statuses %}
-            <option value="{{ s }}" {% if st == s %}selected{% endif %}>{{ s | capitalize }}</option>
+            <option value="{{ s }}" {% if st == s %}selected{% endif %}>
+              {{ s | capitalize }}
+            </option>
             {% endfor %}
           </select>
           <button type="submit"
-                  class="bg-wm-blue text-white text-sm px-3 py-1 rounded hover:bg-wm-bluehov transition">
+                  class="bg-wm-blue text-white text-sm px-3 py-1 rounded
+                         hover:bg-wm-bluehov transition"
+                  onclick="event.stopPropagation()">
             Update Status
           </button>
           {% if block.module %}
           <a href="/?tab={{ block.module }}&date={{ target_date }}"
-             class="text-wm-blue text-xs underline">→ Open Module</a>
+             class="text-wm-blue text-xs underline"
+             onclick="event.stopPropagation()">
+            → Open Module
+          </a>
           {% endif %}
         </form>
 
-        <!-- Notes (auto-save on blur) -->
-        <div>
+        {# ── Notes — auto-save on blur, no collapse possible ────────────── #}
+        <div onclick="event.stopPropagation()">
           <p class="text-xs font-bold uppercase tracking-wide text-wm-gray100 mb-1">Notes</p>
           <form hx-post="/blocks/notes"
                 hx-target="#notes-saved-{{ block.id }}"
@@ -146,35 +179,19 @@
             <input type="hidden" name="block_id" value="{{ block.id }}"/>
             <textarea name="notes" rows="2"
                       onblur="this.form.requestSubmit()"
+                      onclick="event.stopPropagation()"
                       class="w-full text-sm border border-wm-gray50 rounded px-2 py-1.5
                              focus:outline-none focus:ring-2 focus:ring-wm-blue resize-none"
                       placeholder="Add notes…">{{ bstatus.get('notes', '') }}</textarea>
             <div id="notes-saved-{{ block.id }}" class="h-4 mt-1"></div>
           </form>
         </div>
-        {% endif %}{# end if not lunch #}
 
+        {% endif %}{# end if not lunch #}
       </div>
     </div>
+    {# ── END BODY ─────────────────────────────────────────────────────────── #}
+
   </div>
   {% endfor %}
 </div>
-
-<script>
-function toggleBlock(id) {
-  const body    = document.getElementById('body-'    + id);
-  const chevron = document.getElementById('chevron-' + id);
-  const isOpen  = !body.classList.contains('hidden');
-  body.classList.toggle('hidden', isOpen);
-  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-}
-// Auto-expand the current/next block on load
-document.addEventListener('DOMContentLoaded', () => {
-  const now  = new Date();
-  const hour = now.getHours() + now.getMinutes() / 60;
-  const blocks = {{ blocks | tojson }};
-  const current = blocks.find(b => b.start_hour <= hour && hour < b.end_hour);
-  const target  = current || blocks.find(b => b.start_hour > hour);
-  if (target) toggleBlock(target.id);
-});
-</script>

@@ -1,5 +1,9 @@
 """
 routers/blocks.py — Time block status, notes, and checklist completion endpoints.
+
+Checklist toggle: returns empty 200 (hx-swap="none" ignores response body).
+Status update: returns just the one re-rendered block card (not the full timeline).
+JS in app.js tracks open blocks and re-opens after status card swap.
 """
 
 from datetime import date as dt_date
@@ -18,7 +22,7 @@ def _today() -> str:
     return dt_date.today().isoformat()
 
 
-# ── GET timeline partial for a given date ───────────────────────────────────
+# ── GET full timeline partial ────────────────────────────────────────────────
 @router.get("/timeline", response_class=HTMLResponse)
 async def get_timeline(request: Request, date: str = ""):
     target = date or _today()
@@ -40,16 +44,16 @@ async def get_timeline(request: Request, date: str = ""):
             "SELECT block_id, item_id, is_checked FROM checklist_items WHERE date=?",
             (target,),
         )
-        checked_map: dict[str, set[str]] = {}
+        checked_map: dict[str, list[str]] = {}
         for r in checked_rows:
-            checked_map.setdefault(r["block_id"], set())
             if r["is_checked"]:
-                checked_map[r["block_id"]].add(r["item_id"])
+                checked_map.setdefault(r["block_id"], [])
+                checked_map[r["block_id"]].append(r["item_id"])
 
     return templates.TemplateResponse(
-            request,
-            "partials/timeline.html",
-            {
+        request,
+        "partials/timeline.html",
+        {
             "blocks": blocks,
             "status_map": status_map,
             "checked_map": checked_map,
@@ -59,33 +63,7 @@ async def get_timeline(request: Request, date: str = ""):
     )
 
 
-# ── PATCH block status ───────────────────────────────────────────────────────
-@router.post("/status", response_class=HTMLResponse)
-async def update_block_status(
-    request: Request,
-    date: str = Form(...),
-    block_id: str = Form(...),
-    status: str = Form(...),
-    notes: str = Form(""),
-):
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO block_status (date, block_id, status, notes, updated_at)
-            VALUES (?, ?, ?, ?, datetime('now','localtime'))
-            ON CONFLICT(date, block_id) DO UPDATE SET
-                status=excluded.status,
-                notes=excluded.notes,
-                updated_at=excluded.updated_at
-            """,
-            (date, block_id, status, notes),
-        )
-        await db.commit()
-
-    return await get_timeline(request, date=date)
-
-
-# ── POST toggle checklist item ───────────────────────────────────────────────
+# ── POST toggle checklist item — hx-swap="none", JS handles visuals ─────────
 @router.post("/checklist", response_class=HTMLResponse)
 async def toggle_checklist(
     request: Request,
@@ -94,27 +72,88 @@ async def toggle_checklist(
     item_id: str = Form(...),
     checked: str = Form("off"),
 ):
-    is_checked = 1 if checked == "on" else 0
-    dt_expr = "datetime('now','localtime')"
-    val_expr = dt_expr if is_checked else "NULL"
-    sql = f"""
-        INSERT INTO checklist_items (date, block_id, item_id, is_checked, checked_at)
-        VALUES (?, ?, ?, ?, {val_expr})
-        ON CONFLICT(date, block_id, item_id) DO UPDATE SET
-            is_checked=excluded.is_checked,
-            checked_at={val_expr}
     """
+    Persist the checkbox state.  The template uses hx-swap="none" so HTMX
+    ignores this response entirely — all visual feedback is handled client-side
+    by handleChecklistChange() in app.js.
+    """
+    is_checked = 1 if checked == "on" else 0
+    checked_at = "datetime('now','localtime')" if is_checked else "NULL"
 
     async with get_db() as db:
-        await db.execute(sql, (date, block_id, item_id, is_checked))
+        await db.execute(
+            f"""
+            INSERT INTO checklist_items (date, block_id, item_id, is_checked, checked_at)
+            VALUES (?, ?, ?, ?, {checked_at})
+            ON CONFLICT(date, block_id, item_id) DO UPDATE SET
+                is_checked = excluded.is_checked,
+                checked_at = {checked_at}
+            """,
+            (date, block_id, item_id, is_checked),
+        )
         await db.commit()
 
-    # Return just the updated block row
+    # Empty body — HTMX ignores it (hx-swap="none")
+    return HTMLResponse("", status_code=200)
+
+
+# ── POST update block status — re-renders ONLY this one card ────────────────
+@router.post("/status", response_class=HTMLResponse)
+async def update_block_status(
+    request: Request,
+    date: str = Form(...),
+    block_id: str = Form(...),
+    status: str = Form(...),
+    notes: str = Form(""),
+):
+    """
+    Saves the new status and returns just the block card partial.
+    The template targets #block-{id} with hx-swap="outerHTML" so only that
+    card is replaced.  app.js re-opens it if it was open before the swap.
+    """
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO block_status (date, block_id, status, notes, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now','localtime'))
+            ON CONFLICT(date, block_id) DO UPDATE SET
+                status     = excluded.status,
+                updated_at = excluded.updated_at
+            """,
+            (date, block_id, status, notes),
+        )
+        await db.commit()
+
     return await _block_partial(request, date, block_id)
 
 
+# ── POST save notes (auto-save on blur) ─────────────────────────────────────
+@router.post("/notes", response_class=HTMLResponse)
+async def save_block_notes(
+    request: Request,
+    date: str = Form(...),
+    block_id: str = Form(...),
+    notes: str = Form(""),
+):
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO block_status (date, block_id, status, notes, updated_at)
+            VALUES (?, ?, 'pending', ?, datetime('now','localtime'))
+            ON CONFLICT(date, block_id) DO UPDATE SET
+                notes      = excluded.notes,
+                updated_at = excluded.updated_at
+            """,
+            (date, block_id, notes),
+        )
+        await db.commit()
+
+    return HTMLResponse('<span class="text-green-600 text-xs font-medium">✓ Saved</span>')
+
+
+# ── Internal helper — render a single block card ─────────────────────────────
 async def _block_partial(request: Request, date: str, block_id: str) -> HTMLResponse:
-    """Re-render a single block card for HTMX swap."""
+    """Re-render a single block card for targeted HTMX outerHTML swap."""
     d = dt_date.fromisoformat(date)
     blocks = get_blocks_for_day(d.weekday())
     block = next((b for b in blocks if b["id"] == block_id), None)
@@ -135,39 +174,13 @@ async def _block_partial(request: Request, date: str, block_id: str) -> HTMLResp
         checked_set = {r["item_id"] for r in checked_rows if r["is_checked"]}
 
     return templates.TemplateResponse(
-            request,
-            "partials/block_card.html",
-            {
+        request,
+        "partials/block_card.html",
+        {
             "block": block,
             "status_data": status_data,
             "checked_set": checked_set,
             "target_date": date,
             "statuses": BLOCK_STATUSES,
         },
-    )
-
-
-# ── GET block notes save (inline edit) ──────────────────────────────────────
-@router.post("/notes", response_class=HTMLResponse)
-async def save_block_notes(
-    request: Request,
-    date: str = Form(...),
-    block_id: str = Form(...),
-    notes: str = Form(""),
-):
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO block_status (date, block_id, status, notes, updated_at)
-            VALUES (?, ?, 'pending', ?, datetime('now','localtime'))
-            ON CONFLICT(date, block_id) DO UPDATE SET
-                notes=excluded.notes,
-                updated_at=excluded.updated_at
-            """,
-            (date, block_id, notes),
-        )
-        await db.commit()
-
-    return HTMLResponse(
-        f'<span class="text-green-600 text-xs font-medium">✓ Saved</span>'
     )
