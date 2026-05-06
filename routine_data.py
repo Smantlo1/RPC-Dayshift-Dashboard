@@ -411,17 +411,15 @@ WEEKLY_CADENCE = {
     "Friday": "Weekly Summary due by 9:00 AM — leave site controlled.",
 }
 
-# Tracking sheet — live Excel file hosted in SharePoint/Teams
-TRACKING_SHEET_VIEW_URL = (
-    "https://teams.wal-mart.com/sites/5845NicevilleFL/Shared%20Documents/"
-    "5845%20Niceville,%20FL/5845_Tracker_LIVE_v6%20(1).xlsx?web=1"
-)
-TRACKING_SHEET_EMBED_URL = (
+# Tracking sheet — live Excel workbook in SharePoint / Teams
+# RAW_URL  → used by sheet_fetcher.py (backend HTTP GET → xlsx bytes)
+# VIEW_URL → "Open in SharePoint" button (?web=1 opens Excel Online in browser)
+_TS_BASE = (
     "https://teams.wal-mart.com/sites/5845NicevilleFL/Shared%20Documents/"
     "5845%20Niceville,%20FL/5845_Tracker_LIVE_v6%20(1).xlsx"
-    "?action=embedview&wdAllowInteractivity=True&wdHideHeaders=False"
-    "&wdDownloadButton=True&wdInConfigurator=True"
 )
+TRACKING_SHEET_RAW_URL  = _TS_BASE
+TRACKING_SHEET_VIEW_URL = _TS_BASE + "?web=1"
 
 # Block status options
 BLOCK_STATUSES = ["pending", "in-progress", "done", "skipped"]

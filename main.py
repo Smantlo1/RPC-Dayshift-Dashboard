@@ -20,7 +20,6 @@ from routine_data import (
     WEEKLY_CADENCE,
     PROJECT_CATEGORIES,
     TRACKING_SHEET_VIEW_URL,
-    TRACKING_SHEET_EMBED_URL,
 )
 from routers import blocks, tasks, projects, picklist, future_walk, closeout
 

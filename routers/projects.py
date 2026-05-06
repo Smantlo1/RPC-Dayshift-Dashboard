@@ -1,14 +1,16 @@
 """
-routers/projects.py — Project tracking: fixtures, signage, displays, RPS, SET tickets.
+routers/projects.py — Tracking Sheets tab: local project log + live Excel viewer.
 """
 
-from datetime import date as dt_date
-from fastapi import APIRouter, Form, Request
+import time
+from datetime import date as dt_date, datetime
+from fastapi import APIRouter, Form, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from database import get_db
-from routine_data import PROJECT_CATEGORIES, PROJECT_STATUSES, TRACKING_SHEET_VIEW_URL, TRACKING_SHEET_EMBED_URL
+from routine_data import PROJECT_CATEGORIES, PROJECT_STATUSES, TRACKING_SHEET_VIEW_URL
+from sheet_fetcher import get_sheet_data, status_class
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 templates = Jinja2Templates(directory="templates")
@@ -37,12 +39,11 @@ async def _render(request: Request) -> HTMLResponse:
             request,
             "partials/projects.html",
             {
-            "grouped": grouped,
-            "flagged": flagged,
+            "grouped":   grouped,
+            "flagged":   flagged,
             "categories": PROJECT_CATEGORIES,
-            "statuses": PROJECT_STATUSES,
-            "embed_url": TRACKING_SHEET_EMBED_URL,
-            "view_url": TRACKING_SHEET_VIEW_URL,
+            "statuses":  PROJECT_STATUSES,
+            "view_url":  TRACKING_SHEET_VIEW_URL,
         },
     )
 
@@ -109,3 +110,41 @@ async def delete_project(request: Request, proj_id: int):
         await db.commit()
 
     return await _render(request)
+
+
+# ── Live sheet viewer ─────────────────────────────────────────────────────────
+
+@router.get("/sheet", response_class=HTMLResponse)
+async def sheet_viewer(
+    request: Request,
+    sheet: int = Query(default=0, ge=0),
+    force: int = Query(default=0),
+):
+    """Return the parsed Excel table as an HTML partial (loaded via HTMX)."""
+    data = await get_sheet_data(force=bool(force))
+
+    fetched_dt = (
+        datetime.fromtimestamp(
+        # monotonic → wall time approximation
+            time.time() - (time.monotonic() - data["fetched_at"])
+        ).strftime("%I:%M %p")
+        if data["fetched_at"]
+        else "never"
+    )
+
+    # Clamp sheet index
+    sheets = data["sheets"] or []
+    active = min(sheet, max(len(sheets) - 1, 0))
+
+    return templates.TemplateResponse(
+        request,
+        "partials/sheet_view.html",
+        {
+            "sheets":       sheets,
+            "active_sheet": active,
+            "error":        data["error"],
+            "refreshed_at": fetched_dt,
+            "view_url":     TRACKING_SHEET_VIEW_URL,
+            "status_class": status_class,
+        },
+    )

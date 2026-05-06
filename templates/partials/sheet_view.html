@@ -1,0 +1,156 @@
+{# partials/sheet_view.html
+   Loaded via HTMX into #sheet-viewer.
+   Shows:  error state | live Excel table (with sheet tabs + refresh) #}
+
+{% if error %}
+{# ── ERROR STATE ────────────────────────────────────────────────────────── #}
+<div class="flex flex-col items-center justify-center gap-5 py-14 px-6 text-center
+            bg-white rounded-xl border border-red-200 shadow-sm">
+  <div class="text-5xl">⚠️</div>
+  <div>
+    <p class="font-bold text-wm-gray160 text-base mb-1">Could not load tracking sheet</p>
+    <p class="text-sm text-wm-gray100 max-w-md whitespace-pre-wrap">{{ error }}</p>
+  </div>
+  <div class="flex flex-wrap gap-3 justify-center">
+    <button hx-get="/projects/sheet?force=1"
+            hx-target="#sheet-viewer"
+            hx-swap="innerHTML"
+            hx-indicator="#sheet-spinner"
+            class="bg-wm-blue text-white px-5 py-2.5 rounded-lg text-sm
+                   font-semibold hover:bg-wm-bluehov transition">
+      ↺ Try Again
+    </button>
+    <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
+       class="border border-wm-gray50 bg-white text-wm-gray160 px-5 py-2.5
+              rounded-lg text-sm font-semibold hover:bg-wm-gray10 transition">
+      Open in SharePoint ↗
+    </a>
+  </div>
+</div>
+
+{% else %}
+{# ── SUCCESS STATE ──────────────────────────────────────────────────────── #}
+{% set active_data = sheets[active_sheet] if sheets else none %}
+
+{# Sheet tab selector + toolbar #}
+<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+
+  {# Sheet tabs #}
+  <div class="flex flex-wrap gap-1">
+    {% for s in sheets %}
+    <button
+      hx-get="/projects/sheet?sheet={{ loop.index0 }}"
+      hx-target="#sheet-viewer"
+      hx-swap="innerHTML"
+      hx-indicator="#sheet-spinner"
+      class="px-3 py-1.5 text-xs font-medium rounded border transition
+             {% if loop.index0 == active_sheet %}
+               bg-wm-blue text-white border-wm-blue
+             {% else %}
+               bg-white text-wm-gray100 border-wm-gray50
+               hover:text-wm-blue hover:border-wm-blue hover:bg-wm-gray10
+             {% endif %}">
+      {{ s.name }}
+      <span class="ml-1 opacity-75">({{ s.row_count }})</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  {# Toolbar: last-refreshed + refresh + open #}
+  <div class="flex items-center gap-2 flex-shrink-0">
+    <span class="text-xs text-wm-gray100">Updated {{ refreshed_at }}</span>
+    <button hx-get="/projects/sheet?sheet={{ active_sheet }}&force=1"
+            hx-target="#sheet-viewer"
+            hx-swap="innerHTML"
+            hx-indicator="#sheet-spinner"
+            class="text-xs bg-white border border-wm-gray50 px-2.5 py-1.5
+                   rounded hover:bg-wm-gray10 transition">
+      ↺ Refresh
+    </button>
+    <a href="{{ view_url }}" target="_blank" rel="noopener noreferrer"
+       class="text-xs border border-wm-gray50 bg-white text-wm-gray160
+              px-2.5 py-1.5 rounded hover:bg-wm-gray10 transition">
+      Open in SharePoint ↗
+    </a>
+  </div>
+</div>
+
+{% if active_data %}
+
+{# Truncation warning #}
+{% if active_data.truncated %}
+<div class="text-xs text-amber-700 bg-amber-50 border border-amber-200
+            rounded px-3 py-1.5 mb-2">
+  ⚠️ Showing first 500 rows — open in SharePoint to see the full sheet.
+</div>
+{% endif %}
+
+{# Spreadsheet table — sticky header, horizontal + vertical scroll #}
+<div class="rounded-xl border border-wm-gray50 overflow-hidden shadow-sm">
+  <div class="overflow-auto" style="max-height:580px;">
+    <table class="text-xs border-collapse w-full" style="min-width:max-content;">
+
+      {# Sticky header #}
+      <thead>
+        <tr class="bg-wm-gray160 text-white">
+          <th class="sticky top-0 left-0 z-20 bg-wm-gray160
+                     px-3 py-2 text-left font-semibold border-r border-gray-600
+                     whitespace-nowrap select-none"
+              style="min-width:2.5rem;">#</th>
+          {% for h in active_data.headers %}
+          <th class="sticky top-0 z-10 bg-wm-gray160
+                     px-3 py-2 text-left font-semibold border-r border-gray-600
+                     whitespace-nowrap select-none">
+            {{ h }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+
+      {# Data rows #}
+      <tbody>
+        {% for row in active_data.rows %}
+        <tr class="{% if loop.index is odd %}bg-white{% else %}bg-wm-gray10{% endif %}
+                   hover:bg-blue-50 transition-colors">
+
+          {# Row number — sticky left column #}
+          <td class="sticky left-0 z-10 px-3 py-1.5 text-center
+                     text-wm-gray100 border-r border-wm-gray50 select-none
+                     {% if loop.index is odd %}bg-white{% else %}bg-wm-gray10{% endif %}
+                     hover:bg-blue-50">
+            {{ loop.index }}
+          </td>
+
+          {% for cell in row %}
+          {% set sc = status_class(cell) %}
+          <td class="px-3 py-1.5 border-r border-wm-gray50 whitespace-nowrap
+                     {% if sc == 'cell-ok'   %}text-green-700 font-medium
+                     {% elif sc == 'cell-bad'  %}text-red-700 font-semibold
+                     {% elif sc == 'cell-warn' %}text-amber-700 font-medium
+                     {% endif %}">
+            {{ cell }}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+
+        {% if not active_data.rows %}
+        <tr>
+          <td colspan="{{ active_data.headers | length + 1 }}"
+              class="py-8 text-center text-wm-gray100 italic">
+            No data rows in this sheet.
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<p class="text-sm text-wm-gray100 italic text-center py-8">
+  No data available for this sheet.
+</p>
+{% endif %}
+
+{% endif %}{# end error/success #}
